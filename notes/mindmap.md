@@ -6,47 +6,47 @@
 mindmap
   root((ITE 泛化界与 CFR))
     问题
-      目标 τ(x)=E[Y1-Y0|x]
+      目标 tau x = E Y1 - Y0 given x
       反事实不可见
       混杂导致分布不平衡
     假设
       强可忽略性
-        (Y1,Y0)⊥t|x
-        0<p(t=1|x)<1
-      一致性 SUTVA
-      Φ 可逆可微 (Assumption 1)
+        Y1, Y0 独立于 t, 给定 x
+        0 < p t=1 given x < 1
+      一致性
+      Phi 可逆可微 Assumption 1
     理论 Sec 3
       定义
-        ε_F 事实损失
-        ε_CF 反事实损失
-        PEHE (Eq.1)
+        事实损失 eps_F
+        反事实损失 eps_CF
+        PEHE Eq.1
         IPM
       Lemma 1
-        ε_CF ≤ 加权ε_F + B_Φ·IPM
-      Theorem 1 (Eq.2)
-        PEHE ≤ 2(ε_F^0 + ε_F^1 + B_Φ·IPM − 2σ²)
+        eps_CF <= 加权 eps_F + B_Phi * IPM
+      Theorem 1 Eq.2
+        PEHE <= 2 eps_F0 + eps_F1 + B_Phi * IPM - 2 sigma^2
       IPM 特例
-        Wasserstein (1-Lipschitz)
-        MMD (RKHS 单位球)
+        Wasserstein 1-Lipschitz
+        MMD RKHS 单位球
     算法 Sec 4
-      TARNet α=0
-        共享 Φ + 双头 h0 h1
-      CFR α>0
+      TARNet alpha = 0
+        共享 Phi + 双头 h0, h1
+      CFR alpha > 0
         目标函数 Eq.3
         权重 w_i
-        Φ 归一化
+        Phi 归一化
       Algorithm 1 mini-batch SGD
     实验 Sec 5
       IHDP 半合成
-        √PEHE, ATE 误差
-      Jobs 真实
+        sqrt PEHE , ATE 误差
+      Jobs 真实数据
         policy risk, ATT 误差
       结论
         IHDP 上显著优于基线
         Jobs 上相当
     局限
       无隐藏混杂假设
-      α / B_Φ 难确定
+      alpha 与 B_Phi 难确定
       无置信区间
 ```
 
@@ -54,14 +54,14 @@ mindmap
 
 ```mermaid
 flowchart TD
-    A[强可忽略性] --> B[τ(x) 可识别]
-    B --> C[PEHE ≤ 2(ε_F + ε_CF − 2σ²)]
-    C --> D[ε_CF 不可估计]
-    D --> E[Lemma 1: 用 IPM 约束 ε_CF − ε_F]
-    E --> F[Theorem 1: PEHE ≤ 2(ε_F^0 + ε_F^1 + B_Φ·IPM − 2σ²)]
-    F --> G[目标函数 Eq.3: 预测损失 + α·IPM]
-    G --> H[CFR / TARNet]
-    H --> I[IHDP / Jobs 实验]
+    A["强可忽略性"] --> B["tau(x) 可识别"]
+    B --> C["PEHE <= 2(eps_F + eps_CF - 2 sigma^2)"]
+    C --> D["eps_CF 无法直接估计"]
+    D --> E["Lemma 1: 用 IPM 约束 eps_CF 与 eps_F 的差"]
+    E --> F["Theorem 1: PEHE <= 2(eps_F0 + eps_F1 + B_Phi * IPM - 2 sigma^2)"]
+    F --> G["目标函数 Eq.3: 预测损失 + alpha * IPM"]
+    G --> H["CFR / TARNet"]
+    H --> I["IHDP / Jobs 实验"]
 ```
 
 ## 符号表
