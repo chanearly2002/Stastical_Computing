@@ -1,0 +1,760 @@
+ Estimating individual treatment effect: generalization bounds and algorithms
+
+
+                                 Uri Shalit * 1 Fredrik D. Johansson * 2 David Sontag 2 3
+
+
+                         Abstract                              data which contains past actions, their outcomes, and pos-
+                                                               sibly more context, but without direct access to the mecha-
+      There is intense interest in applying machine
+                                                               nism which gave rise to the action. For example we might
+      learning to problems of causal inference in fields
+                                                               have access to records of patients (context), their medica-
+      such as healthcare, economics and education.
+                                                               tions (actions), and outcomes, but we do not have complete
+      In particular, individual-level causal inference
+                                                               knowledge of why a specific action was applied to a patient.
+      has important applications such as precision
+      medicine. We give a new theoretical analy-               The hallmark of learning from observational data is that
+      sis and family of algorithms for predicting indi-        the actions observed in the data depend on variables which
+      vidual treatment effect (ITE) from observational         might also affect the outcome, resulting in confounding:
+      data, under the assumption known as strong ig-           For example, richer patients might better afford certain
+      norability. The algorithms learn a “balanced”            medications, and job training might only be given to those
+      representation such that the induced treated and         motivated enough to seek it. The challenge is how to untan-
+      control distributions look similar, and we give          gle these confounding factors and make valid predictions.
+      a novel and intuitive generalization-error bound         Specifically, we work under the common simplifying as-
+      showing the expected ITE estimation error of a           sumption of “no-hidden confounding”, assuming that all
+      representation is bounded by a sum of the stan-          the factors determining which actions were taken are ob-
+      dard generalization-error of that representation         served. In the examples above, it would mean that we have
+      and the distance between the treated and con-            measured a patient’s wealth or an employee’s motivation.
+      trol distributions induced by the representation.
+                                                               As a learning problem, estimating causal effects from ob-
+      We use Integral Probability Metrics to measure
+                                                               servational data is different from classic learning in that in
+      distances between distributions, deriving explicit
+                                                               our training data we never see the individual-level effect.
+      bounds for the Wasserstein and Maximum Mean
+                                                               For each unit, we only see their response to one of the pos-
+      Discrepancy (MMD) distances. Experiments on
+                                                               sible actions - the one they had actually received. This is
+      real and simulated data show the new algorithms
+                                                               close to what is known in the machine learning literature as
+      match or outperform the state-of-the-art.
+                                                               “learning from logged bandit feedback” (Strehl et al., 2010;
+                                                               Swaminathan & Joachims, 2015), with the distinction that
+                                                               we do not have access to the model generating the action.
+1. Introduction
+                                                               Our work differs from much work in causal inference in
+Making predictions about causal effects of actions is a cen-   that we focus on the individual-level causal effect (“c-
+tral problem in many domains. For example, a doctor de-        specific treatment effects” Shpitser & Pearl (2006); Pearl
+ciding which medication will cause better outcomes for a       (2015)), rather than the average or population level. Our
+patient; a government deciding who would benefit most          main contribution is to give what is, to the best of our
+from subsidized job training; or a teacher deciding which      knowledge, the first generalization-error1 bound for esti-
+study program would most benefit a specific student. In        mating individual-level causal effect, where each individ-
+this paper we focus on the problem of making these predic-     ual is identified by its features x. The bound leads natu-
+tions based on observational data. Observational data is       rally to a new family of representation-learning based al-
+  *
+    Equal contribution 1 CIMS, New York University, New        gorithms (Bengio et al., 2013), which we show to match or
+York, NY 10003 2 IMES, MIT, Cambridge, MA 02142                outperform state-of-the-art methods on several causal ef-
+3
+  CSAIL, MIT, Cambridge, MA 02139.         Correspondence      fect inference tasks.
+to: Uri Shalit <shalit@cs.nyu.edu>, Fredrik D. Johansson
+                                                                  1
+<fredrikj@mit.edu>, David Sontag <dsontag@csail.mit.edu>.           Our use of the term generalization is different from its use in
+                                                               the study of transportability, where the goal is to generalize causal
+Proceedings of the 34 th International Conference on Machine   conclusion across distributions (Bareinboim & Pearl, 2016).
+Learning, Sydney, Australia, PMLR 70, 2017. Copyright 2017
+by the author(s).
+                           Estimating individual treatment effect: generalization bounds and algorithms
+
+We frame our results using the Neyman-Rubin potential                                                 ℎ&
+                                                                                        𝑖𝑓	  𝑡 = 1
+outcomes framework (Rubin, 2011), as follows. We as-                                                  …         𝐿(ℎ&(Φ), 𝑦 = 𝑌&)
+sume that for a unit with features x ∈ X , and an action           𝑥           …   Φ
+(also known as treatment or intervention) t ∈ {0, 1}, there                             𝑖𝑓	  𝑡 = 0
+                                                                                                      …         𝐿 ℎ6 Φ , 𝑦 = 𝑌6
+                                                                                                      ℎ6
+are two potential outcomes: Y0 and Y1 . For each unit we                                                                456 45&
+                                                                   𝑡                                            IPM0 (𝑝23  , 𝑝23 )
+only observe one of the potential outcomes, according to
+treatment assignment: if t = 0 we observe y = Y0 , if
+t = 1, we observe y = Y1 ; this is known as the consis-            Figure 1. Neural network architecture for ITE estimation. L is
+tency assumption. For example, x can denote the set of lab         a loss function, IPMG is an integral probability metric. Note that
+tests and demographic factors of a diabetic patient, t = 0         only one of h0 and h1 is updated for each sample during training.
+denote the standard medication for controlling blood sugar,
+t = 1 denotes a new medication, and Y0 and Y1 indicate the         et al., 2012), and the Wasserstein distance (Villani, 2008;
+patient’s blood sugar level if they were to be given medica-       Cuturi & Doucet, 2014). We show that the expected error
+tions t = 0 and t = 1, respectively.                               in learning the individual treatment effect function τ (x) is
+We will denote m1 (x) = E [Y1 |x], m0 (x) = E [Y0 |x].             upper bounded by the error of learning Y1 and Y0 , plus the
+We are interested in learning the function τ (x) :=                IPM term. In the randomized controlled trial setting, where
+E [Y1 − Y0 |x] = m1 (x) − m0 (x). τ (x) is the expected            t⊥⊥ x, the IPM term is 0, and our bound naturally reduces
+treatment effect of t = 1 relative to t = 0 on a unit with         to a standard learning problem of learning two functions.
+characteristics x, or the Individual Treatment Effect (ITE)2 .     The bound we derive points the way to a family of algo-
+Our goal is to find           i τ̂ of τ such that some loss
+                  h an estimate                                    rithms based on the idea of representation learning (Ben-
+                            2
+function, e.g. E (τ̂ − τ ) , is small. For example, for a          gio et al., 2013): Jointly learn hypotheses for both treated
+patient with features x, we attempt to predict which of two        and control on top of a representation which minimizes a
+treatments will have a better outcome. The fundamental             weighted sum of the factual loss (the standard supervised
+problem of causal inference is that for any x in our data we       machine learning objective), and the IPM distance between
+only observe Y1 or Y0 , but never both.                            the control and treated distributions induced by the repre-
+                                                                   sentation. This can be viewed as learning the functions m0
+As mentioned above, we make an important “no-hidden
+                                                                   and m1 under a constraint that encourages better general-
+confounders” assumption, in order to make the condi-
+                                                                   ization across the treated and control populations. In the
+tional causal effect identifiable. We formalize this assump-
+                                                                   Experiments section we apply algorithms based on neural
+tion by using the standard strong ignorability condition:
+                                                                   nets as representations and hypotheses, along with MMD
+(Y1 , Y0 ) ⊥
+           ⊥ t|x, and 0 < p(t = 1|x) < 1 for all x. Strong
+                                                                   or Wasserstein distributional distances over the representa-
+ignorability is a sufficient condition for the ITE function
+                                                                   tion layer; see Figure 1 for the basic architecture.
+τ (x) to be identifiable (Imbens & Wooldridge, 2009; Pearl,
+2015; Rolling, 2014): see proof in the supplement. The va-         In his foundational text on causality, Pearl (2009) writes:
+lidity of strong ignorability cannot be assessed from data,        “Whereas in traditional learning tasks we attempt to gener-
+and must be determined by domain knowledge and under-              alize from one set of instances to another, the causal mod-
+standing of the causal relationships between the variables.        eling task is to generalize from behavior under one set of
+                                                                   conditions to [...] another set. Causal models should there-
+One approach to the problem of estimating the function
+                                                                   fore be chosen by a criterion that challenges their stability
+τ (x) is by learning the two functions m0 (x) and m1 (x)
+                                                                   against changing conditions” [emphasis ours]. We believe
+using samples from p(Yt |x, t). This is similar to a stan-
+                                                                   our work points the way to one such stability criterion, for
+dard machine learning problem of learning from finite sam-
+                                                                   causal inference in the strongly ignorable case.
+ples. However, there is an additional source of variance at
+work here: For example, if mostly rich patients received
+treatment t = 1, and mostly poor patients received treat-          2. Related work
+ment t = 0, we might have an unreliable estimation of
+                                                                   Much recent work in machine learning for causal infer-
+m1 (x) for poor patients. In this paper we upper bound this
+                                                                   ence focuses on causal discovery, with the goal of discov-
+additional source of variance using an Integral Probabil-
+                                                                   ering the underlying causal graph or causal direction from
+ity Metric (IPM) measure of distance between two distri-
+                                                                   data (Hoyer et al., 2009; Maathuis et al., 2010; Triantafil-
+butions p(x|t = 0), and p(x|t = 1), also known as the
+                                                                   lou & Tsamardinos, 2015; Mooij et al., 2016). We focus
+control and treated distributions. In practice we use two
+                                                                   on the case when the causal setup is simple and known
+specific IPMs: the Maximum Mean Discrepancy (Gretton
+                                                                   to be of the form (Y1 , Y0 ) ⊥
+                                                                                                ⊥ x|t, with no hidden con-
+   2
+       Also known as Conditional Average Treatment Effect, CATE.   founders. Under the causal model we assume, the most
+                                                                   common goal of causal effect inference as used in the ap-
+                         Estimating individual treatment effect: generalization bounds and algorithms
+
+plied sciences is to obtain the average treatment effect:        adaptation. In particular, estimating ITE requires predic-
+AT E = Ex∼p(x) [τ (x)]. We will briefly discuss how some         tion of outcomes over a different distribution from the ob-
+standard statistical causal effect inference methods relate to   served one. Our ITE error upper bound has similarities with
+our proposed method. Note that most of these approaches          generalization bounds in domain adaptation given by Ben-
+assume some form of ignorability.                                David et al. (2007); Mansour et al. (2009); Ben-David et al.
+                                                                 (2010); Cortes & Mohri (2014). These bounds employ dis-
+One of the most widely used approaches to estimating ATE
+                                                                 tribution distance metrics such as the A-distance or the dis-
+is covariate (or back-door) adjustment, also known as the
+                                                                 crepancy metric, which are related to the IPM distance we
+G-computation formula (Robins, 1986; Pearl, 2009). In
+                                                                 use. Our algorithm is similar to a recent algorithm for do-
+their basic version, covariate adjustment methods aim to
+                                                                 main adaptation by Ganin et al. (2016), and in principle
+estimate the functions m1 (x), m0 (x), and are therefore
+                                                                 other domain adaptation methods (e.g. Daumé III (2007);
+natural candidates for estimating ITE as well as ATE, us-
+                                                                 Pan et al. (2011); Sun et al. (2016)) could be adapted for
+ing the estimates of mt (x). Most previous work on this
+                                                                 use in ITE estimation as presented here.
+subject focused on asymptotic consistency (Belloni et al.,
+2014; Athey et al., 2016; Chernozhukov et al., 2016), and        Finally, our paper builds on Johansson et al. (2016), where
+so far there has not been much work on the generalization-       we showed a connection between covariate shift and the
+error of such a procedure. One view of our results is that       task of estimating counterfactuals. We proposed learning a
+we point out a previously unaccounted for source of vari-        representation of the data that makes the treated and control
+ance when using covariate adjustment to estimate ITE. We         distributions more similar, fitting a linear ridge-regression
+suggest a new type of regularization, by learning represen-      model on top of it. We bounded the relative error of fitting
+tations with reduced IPM distance between treated and con-       a ridge-regression using the distribution with reverse treat-
+trol, enabling a new type of bias-variance trade-off.            ment assignment versus fitting a ridge-regression using the
+                                                                 factual distribution. Unfortunately, the relative error bound
+Another widely used family of statistical methods used in
+                                                                 is not at all informative regarding the absolute quality of
+causal effect inference are weighting methods. Methods
+                                                                 the representation. In this paper we focus on a related but
+such as inverse propensity score weighting (Austin, 2011)
+                                                                 more substantive task: estimating the individual treatment
+re-weight the units in the observational data so as to make
+                                                                 effect, building on the counterfactual error term. We pro-
+the treated and control populations more comparable, and
+                                                                 vide an informative bound on the absolute quality of the
+have been used for estimating conditional effects as well
+                                                                 representation. We also derive a much more flexible family
+(Cole et al., 2003). The major challenge, especially in
+                                                                 of algorithms, including non-linear hypotheses and much
+high-dimensional cases, is controlling the variance of the
+                                                                 more powerful distribution metrics in the form of IPMs
+estimates (Swaminathan & Joachims, 2015). Doubly ro-
+                                                                 such as the Wasserstein and MMD distances. Finally, we
+bust methods go further and combine propensity score re-
+                                                                 conduct significantly more thorough experiments including
+weighting and covariate adjustment in clever ways to re-
+                                                                 a real-world dataset and out-of-sample performance, and
+duce model bias (Funk et al., 2011).
+                                                                 show our methods outperform previously proposed ones.
+Adapting machine learning methods for causal effect infer-
+ence, and in particular for individual level treatment effect,   3. Estimating ITE: Error bounds
+has gained much interest recently. For example Wager &
+Athey (2015); Athey & Imbens (2016) discuss how tree-            In this section we prove a bound on the expected error in
+based methods can be adapted to obtain a consistent esti-        estimating the individual treatment effect for a given repre-
+mator with semi-parametric asymptotic convergence rate.          sentation, and a hypothesis defined over that representation.
+Recent work has also looked into how machine learning            The bound is expressed in terms of (1) the expected loss
+methods can help detect heterogeneous treatment effects          of the model when learning the observed outcomes y as a
+when some data from randomized experiments is available          function of x and t, denoted F , F standing for “Factual”;
+(Taddy et al., 2016; Peysakhovich & Lada, 2016). Neural          (2) an Integral Probability Metric (IPM) distance between
+nets have also been used for this purpose, exemplified in        the distribution of treated and control units. The term F
+early work by Beck et al. (2000), and more recently by           is the classic machine learning generalization-error, and in
+Hartford et al. (2016)’s work on deep instrumental vari-         turn can be upper bounded using the empirical error and
+ables. Our work differs from all the above by focusing           model complexity terms, applying standard machine learn-
+on the generalization-error aspects of estimating individual     ing theory (Shalev-Shwartz & Ben-David, 2014).
+treatment effect, as opposed to asymptotic consistency, and
+by focusing solely on the observational study case, with no      3.1. Problem setup
+randomized components or instrumental variables.
+                                                                 We will employ the following assumptions and notations.
+Our work has strong connections with work on domain              The most important notations are in the Notation box in the
+                          Estimating individual treatment effect: generalization bounds and algorithms
+
+supplement. The space of covariates is a bounded subset             exactly the opposite treatment than the one the real-world
+X ⊂ Rd . The outcome space is Y ⊂ R. Treatment t is a               doctors would prescribe.
+binary variable. We assume there exists a joint distribution        Definition 3. The expected factual treated and control
+p(x, t, Y0 , Y1 ), such that (Y1 , Y0 ) ⊥
+                                        ⊥ t|x and 0 < p(t =         losses are:
+1|x) < 1 for all x ∈ X (strong ignorability). The treated                                    Z
+and control distributions are the distribution of the features                t=1  (h, Φ) =   `h,Φ (x, 1) pt=1 (x) dx,
+                                                                                F
+x conditioned on treatment: pt=1 (x) := p(x|t = 1), and                                      ZX
+pt=0 (x) := p(x|t = 0), respectively.
+                                                                              F (h, Φ) = `h,Φ (x, 0) pt=0 (x) dx.
+                                                                                t=0
+
+Throughout this paper we will discuss representation func-                                     X
+
+tions of the form Φ : X → R, where R is the representa-
+tion space. We make the following assumption about Φ:               For u := p(t = 1), it is immediate to show that F (h, Φ) =
+                                                                    ut=1                     t=0
+                                                                      F (h, Φ) + (1 − u)F (h, Φ).
+Assumption 1. The representation Φ is a twice-
+differentiable, one-to-one function. Without loss of gener-         Definition 4. The treatment effect (ITE) for unit x is:
+ality we will assume that R is the image of X under Φ.                                τ (x) := E [Y1 − Y0 |x] .
+We then have Ψ : R → X as the inverse of Φ, such that
+Ψ(Φ(x)) = x for all x ∈ X .
+                                                                    Let f : X × {0, 1} → Y by an hypothesis. For example,
+The representation Φ pushes forward the treated and con-            we could have that f (x, t) = h(Φ(x), t).
+trol distributions into the new space R; we denote the in-          Definition 5. The treatment effect estimate of the hypothe-
+duced distribution by pΦ .                                          sis f for unit x is:
+Definition 1. Define pt=1                      t=0
+                      Φ (r) := pΦ (r|t = 1), pΦ (r) :=                              τ̂f (x) = f (x, 1) − f (x, 0).
+pΦ (r|t = 0), to be the treated and control distributions
+induced over R. For a one-to-one Φ, the distributions               Definition 6. The expected Precision in Estimation of Het-
+pt=1           t=0
+ Φ (r) and pΦ (r) can be obtained by the standard                   erogeneous Effect (PEHE, Hill (2011)) loss of f is:
+change of variables formula, using the determinant of the                                Z
+Jacobian of Ψ(r).                                                           PEHE (f ) =
+                                                                                                            2
+                                                                                           (τ̂f (x) − τ (x)) p(x) dx,      (1)
+                                                                                           X
+Let Φ : X → R be a representation function, and h :
+R × {0, 1} → Y be an hypothesis defined over the repre-             When f (x, t) = h(Φ(x), t), we will also use the notation
+sentation space R. Let L : Y × Y → R+ be a loss func-               PEHE (h, Φ) = PEHE (f ).
+tion. We define two complimentary loss functions: one is
+                                                                    Our proof relies on the notion of an Integral Probability
+the standard machine learning loss, which we will call the
+                                                                    Metric (IPM), which is a class of metrics between prob-
+factual loss F , as it relates to observable quantities. The
+                                                                    ability distributions (Sriperumbudur et al., 2012; Müller,
+other is the expected loss with respect to the distribution
+                                                                    1997). For two probability density functions p, q defined
+where the treatment assignment is flipped, which we call
+                                                                    over S ⊆ Rd , and for a function family G of functions
+the counterfactual loss, CF .
+                                                                    g : S → R, we have that
+Definition 2. The expected loss for the unit                                                    Z
+and
+R      treatment pair (x, t) is:               `h,Φ (x, t)     =           IPMG (p, q) := sup     g(s)(p(s) − q(s)) ds .
+  Y
+    L(Y t , h(Φ(x), t))p(Yt |x)dY  t . The    expected    factual                         g∈G      S
+and counterfactual losses of h and Φ are:
+                    Z                                               Integral probability metrics are always symmetric and obey
+                                                                    the triangle inequality, and trivially satisfy IPMG (p, p) =
+      F (h, Φ) =          `h,Φ (x, t) p(x, t) dxdt,
+                     X ×{0,1}                                       0. For rich enough function families G, we also have that
+                      Z                                             IPMG (p, q) = 0 =⇒ p = q, and then IPMG is a true
+      CF (h, Φ) =           `h,Φ (x, t) p(x, 1 − t) dxdt.          metric. Examples of function families G for which IPMG
+                      X ×{0,1}
+                                                                    is a true metric are the family of bounded continuous func-
+                                                                    tions, the family of 1-Lipschitz functions (Sriperumbudur
+If x denotes patients’ features, t a treatment, and Yt a poten-     et al., 2012), and the unit-ball of functions in a universal
+tial outcome such as mortality, we think of F as measuring         reproducing kernel Hilbert space (Gretton et al., 2012).
+how well do h and Φ predict mortality for the patients and
+doctors’ actions sampled from the same distribution as our
+                                                                    3.2. Bounds
+data sample. CF measures how well our prediction with
+h and Φ would do in a “topsy-turvy” world where the pa-             We first state a Lemma bounding the counterfactual loss, a
+tients are the same but the doctors are inclined to prescribe       key step in obtaining the bound on the error in estimating
+                        Estimating individual treatment effect: generalization bounds and algorithms
+
+individual treatment effect. We then give the main Theo-          have been used for various machine learning tasks in recent
+rem. The proofs and details are in the supplement.                years (Gretton et al., 2009; 2012; Cuturi & Doucet, 2014).
+Let u := p(t = 1) be the marginal probability of treatment.       In order to explicitly evaluate the constant BΦ in Theorem
+By the strong ignorability assumption, 0 < u < 1.                 1, we have to make some assumptions about the elements
+Lemma 1. Let Φ : X → R be a one-to-one representation             of the problem. For the Wasserstein case these are the loss
+function, with inverse Ψ. Let h : R × {0, 1} → Y be an            L, the Lipschitz constants of p(Yt |x) and h, and the con-
+hypothesis. Let G be a family of functions g : R → Y. As-         dition number of the Jacobian of Φ. For the MMD case,
+sume there exists a constant BΦ > 0, such that for fixed t ∈      we make assumptions about the RKHS representability and
+{0, 1}, the per-unit expected loss functions `h,Φ (Ψ(r), t)       RKHS norms of h , Φ, and the standard deviation of Yt |x.
+(Definition 2) obey B1Φ · `h,Φ (Ψ(r), t) ∈ G. We have:            The full details are given in the supplement, with the major
+                                                                  results stated in Theorems 2 and 3. In all cases we obtain
+           CF (h, Φ) ≤                                           that making Φ smaller increases the constant BΦ preclud-
+                                                                  ing trivial solutions such as making Φ arbitrarily small.
+              (1 − u)t=1          t=0
+                      F (h, Φ) + uF (h, Φ)
+                                                                  For an empirical sample, and a family of representations
+               + BΦ · IPMG pt=1   t=0
+                                      
+                             Φ , pΦ     ,
+                                                                  and hypotheses, we can further upper bound t=0    and t=1
+                                                                                                                F         F
+where CF , t=0 and t=1 are as in Definitions 2 and 3.          by their respective empirical losses and a model complex-
+             F        F
+                                                                  ity term using standard arguments (Shalev-Shwartz & Ben-
+Theorem 1. Under the conditions of Lemma 1, and assum-            David, 2014). The IPMs we use can be consistently es-
+ing the loss L used to define `h,Φ in Definitions 2 and 3 is      timated from finite samples (Sriperumbudur et al., 2012).
+the squared loss, we have:                                        The negative variance term σY2 arises from the fact that,
+                                                                  following Hill (2011); Athey & Imbens (2016), we define
+PEHE (h, Φ) ≤
+                                                                  the error PEHE in terms of the conditional mean functions
+2 CF (h, Φ) + F (h, Φ) − 2σY2 ≤
+                               
+                                                           (2)    mt (x), as opposed to fitting the random variables Yt .
+2 t=0       t=1
+                                        pt=1  t=0
+                                                        −2σY2 ,
+                                                            
+   F (h, Φ)+F (h, Φ)+BΦ IPMG            Φ , pΦ                   Our results hold for any given h and Φ obeying the The-
+                                                                  orem conditions. This immediately suggest an algorithm
+where F and CF are defined w.r.t. the squared loss, and
+                                                                  in which we minimize the upper bound in Eq. (2) with re-
+σY2 is the variance of the outcomes Yt (see Definition A11
+                                                                  spect to Φ and h and either the Wasserstein or MMD IPM,
+in Appendix for detailed definition).
+                                                                  in order to minimize the error in estimating the individual
+The main idea of the proof is showing that PEHE is upper         treatment effect. This leads us to Algorithm 1 below.
+bounded by the sum of the expected factual loss F and
+expected counterfactual loss CF . However, we cannot es-         4. Algorithm for estimating ITE
+timate CF , since we only have samples relevant to F . We
+therefore bound the difference CF − F using an IPM.             We propose a general framework called CFR (for Counter-
+                                                                  factual Regression) for ITE estimation based on the theo-
+Choosing a small function family G makes the bound                retical results above. Our algorithm is an end-to-end, regu-
+tighter. However, choosing too small a family could re-           larized minimization procedure which fits both a balanced
+sult in an incomputable bound. For example, for the min-          representation of the data and a hypothesis for the outcome.
+imal choice G = {`h,Φ (x, 0), `h,Φ (x, 1)}, we will have to       CFR draws on the same intuition as our previous work (Jo-
+evaluate an expectation term of Y1 over pt=0  Φ , and of Y0       hansson et al., 2016), but overcomes the following limita-
+over pt=1
+        Φ  . We   cannot  in general evaluate  these expecta-     tions: a) Our previous theory requires a two-step optimiza-
+tions, since by assumption when t = 0 we only observe             tion procedure and is specific to linear hypotheses (it does
+Y0 , and the same for t = 1 and Y1 . In addition, for some        not support e.g. deep neural networks), b) The treatment in-
+function families there is no known way to efficiently com-       dicator might be washed out in the old model, if the learned
+pute the IPM distance or its gradients. Here, we use two          representation is high-dimensional (see discussion below).
+function families for which there are available optimiza-
+tion tools. The first is the family of 1-Lipschitz functions,     We assume there exists a distribution p(x, t, Y0 , Y1 ) over
+which leads to IPM being the Wasserstein distance (Vil-           X × {0, 1} × Y × Y, such that strong ignorability holds.
+lani, 2008), denoted Wass(p, q). The second is the family         We further assume we have a sample from that distribution
+of norm-1 reproducing kernel Hilbert space (RKHS) func-           (x1 , t1 , y1 ), . . . (xn , tn , yn ), where yi ∼ p(Y1 |xi ) if ti = 1,
+tions, leading to the MMD metric (Gretton et al., 2012), de-      yi ∼ p(Y0 |xi ) if ti = 0. This standard assumption means
+noted MMD(p, q). Both the Wasserstein and MMD metrics             that the treatment assignment determines which potential
+have consistent estimators which can be efficiently com-          outcome we see. Our goal is to find a representation Φ :
+puted for finite samples (Sriperumbudur et al., 2012), and        X → R and hypothesis h : X × {0, 1} → Y that will
+                         Estimating individual treatment effect: generalization bounds and algorithms
+
+minimize PEHE (f ) for f (x, t) := h(Φ(x), t).                      Algorithm 1 CFR: Counterfactual regression with integral
+                                                                     probability metrics
+We parameterize Φ(x) and h(Φ, t) by deep neural networks
+trained jointly, see Figure 1. This allows for learning com-          1: Input: Factual sample (x1 , t1 , y1 ), . . . , (xn , tn , yn ),
+plex non-linear representations and hypotheses with large                scaling parameter α > 0, loss function L (·, ·), rep-
+flexibility. In Johansson et al. (2016), we parameterized                resentation network ΦW with initial weights W, out-
+h(Φ, t) with a single network, concatenating Φ and t as in-              come network hV with initial weights V, function
+put. In this case, if Φ is high-dimensional, the influence of            family G for IPM. Pn
+t on h might be lost during training. To combat this, we pa-          2: Compute u = n1      i=1 ti
+                                                                                          ti     1−ti
+rameterize h1 (Φ) = h(Φ, 1) and h0 (Φ) = h(Φ, 0) as two               3: Compute wi = 2u     + 2(1−u)   for i = 1 . . . n
+separate “heads” of the joint network, the former used to             4: while not converged do
+estimate the outcome under treatment, and the latter under            5:    Sample mini-batch {i1 , i2 , . . . , im } ⊂ {1, 2, . . . , n}
+control. This way, statistical power is shared in represen-           6:    Calculate the gradient of the IPM term:
+tation layers, while the effect of treatment is preserved in                g1 =∇W IPMG ({ΦW (xij )}tij =0 , {ΦW (xik )}tij =1 )
+the separate heads. Note that each sample is used to update           7:    Calculate thePgradients of the empirical loss: 
+                                                                                       1
+only the head corresponding to the observed treatment.                      g2 = ∇V m        w · L hV (ΦW (xij ), tij ), yij
+                                                                                        1
+                                                                                          Pj ij                                      
+Our second contribution is to explicitly adjust for the bias                g3 = ∇W m j wij · L hV (ΦW (xij ), tij ), yij
+induced by treatment group imbalance. To this end, we                 8:    Obtain step size scalar or matrix η with standard
+seek a representation Φ and hypothesis h that minimizes a                   neural net methods e.g. Adam (Kingma & Ba, 2015)
+trade-off between predictive accuracy and imbalance in the            9:    [W, V] ← [W − η(αg1 + g3 ), V − η(g2 + 2λV)]
+representation space, using the following objective:                 10:    Check convergence criterion
+                                                                     11: end while
+           1
+               Pn
+ min       n    i=1 wi · L (h(Φ(xi ), ti ) , yi ) + λ · R(h)
+ h,Φ
+kΦk=1
+
+           +α · IPMG ({Φ(xi )}i:ti =0 , {Φ(xi )}i:ti =1 ) ,          synthetic datasets, where the outcome or treatment assign-
+  with           ti
+           wi = 2u     1−ti
+                    + 2(1−u)
+                                               Pn
+                             , where u = n1 i=1 ti ,                 ment are fully known; we use the semi-synthetic IHDP
+                                                                     dataset from Hill (2011). The other is using real-world
+   and              R is a model complexity term.              (3)   data from randomized controlled trials (RCT). The problem
+                                                                     with using data from RCTs is that there is no imbalance be-
+Note that u = p(t = 1) is simply the proportion of treated
+                                                                     tween treatment groups, making our method redundant. We
+units in the population. The weights wi compensate for the
+                                                                     partially overcome this problem by using the Jobs dataset
+difference in treatment group size in our sample, see The-
+                                                                     from LaLonde (1986), which includes both a randomized
+orem 1. IPMG (·, ·) is the (empirical) integral probability
+                                                                     and a non-randomized component. We use both compo-
+metric w.r.t. G. For most IPMs, we cannot compute the
+                                                                     nents for training, but only use the randomized component
+factor Bφ in (2), but treat it as part of the hyperparameter
+                                                                     for evaluation. This alleviates, but does not solve, the issue
+α. This makes our objective sensitive to the scaling of Φ,
+                                                                     of a completely randomized and balanced dataset being un-
+even for a constant α. We therefore normalize Φ through
+                                                                     suited for our method.
+either projection or batch-normalization with fixed scale.
+                                                                     We evaluate our framework CFR, and its variant with-
+We refer to the model minimizing (3) with α > 0 as Coun-
+                                                                     out balancing regularization (TARNet), in the task of es-
+terfactual Regression (CFR) and the variant without bal-
+                                                                     timating ITE and ATE. Both versions are implemented3
+ance regularization (α = 0) as Treatment-Agnostic Rep-
+                                                                     as feed-forward neural networks with 3 fully-connected
+resentation Network (TARNet). Both models are trained
+                                                                     exponential-linear layers (Clevert et al., 2016) for the repre-
+by minimizing (3) using stochastic gradient descent, as de-
+                                                                     sentation and 3 for the hypothesis. Layer sizes were 200 for
+scribed in Algorithm 1. Both the prediction loss and the
+                                                                     all layers used for Jobs and 200 and 100 for the represen-
+penalty term IPMG (·, ·) are computed for one mini-batch
+                                                                     tation and hypothesis used for IHDP. The model is trained
+at a time. Details of how to obtain the gradient g1 with
+                                                                     using Adam (Kingma & Ba, 2015). The hypothesis param-
+respect to the empirical IPMs are in the supplement.
+                                                                     eters are regularized with a small `2 weight decay. For con-
+                                                                     tinuous data we use mean squared loss and for binary data,
+5. Experiments                                                       we use log-loss. While our theory does not immediately
+                                                                     apply to log-loss, we were curious to see how our model
+Evaluating causal inference algorithms is more difficult             performs with it. We use the Wasserstein (CFR WASS ) and
+than many machine learning tasks, since we rarely have ac-           the squared linear MMD (CFR MMD ) distances to penalize
+cess to the ground truth treatment effect. Existing literature
+                                                                        3
+mostly deals with this in two ways. One is by using (semi-)                 https://github.com/clinicalml/cfrnet
+                        Estimating individual treatment effect: generalization bounds and algorithms
+
+imbalance.                                                                                                1.5
+
+                                                                                                                        q = 0: 0
+We compare our method to Ordinary Least Squares with                                                      1.4
+
+
+
+
+                                                                                ²PEHE relative to ® = 0
+                                                                                                                        q = 0: 5
+treatment as a feature (OLS1 ), OLS with separate re-                                                     1.3
+                                                                                                                        q = 1: 0
+gressors for each treatment (OLS2 ), k-nearest neighbor                                                   1.2
+
+(k-NN), Targeted Maximum Likelihood (TMLE), which                                                         1.1
+
+is a doubly robust method (Gruber & van der Laan,                                                         1.0
+
+2011), Bayesian Additive Regression Trees (BART) (Chip-                                                   0.9
+
+man et al., 2010; Chipman & McCulloch, 2016), Ran-                                                        0.8
+
+dom Forests (R. For.) (Breiman, 2001), Causal Forests                                                     0.7
+                                                                                                                0   10 -5         10 -4   10 -3   10 -2     10 -1   10 0    10 1
+(C. For.) (Wager & Athey, 2015) as well as the Balanc-
+                                                                                                                             Imbalance penalty; ®
+ing Linear Regression (BLR) and Balancing Neural Net-
+work (BNN) from Johansson et al. (2016). For classifica-        Figure 2. Out-of-sample ITE error versus IPM regularization for
+                                                                CFR Wass, relative to the error at α = 0, on 500 realizations of
+tion tasks we substitute Logistic Regression (LR) for OLS.
+                                                                IHDP, with high (q = 1), medium and low (artificial) imbalance
+Choosing hyperparameters for estimating PEHE is non-
+                                                                between control and treated.
+trivial; we detail our general procedure using a validation
+                                                                                                   0.32
+set, in subsection C.1 of the supplement.                                                                                                                           BART
+                                                                                                   0.30                                                             Causal Forests
+
+
+
+
+                                                                     Out of sample policy risk
+We consider two different estimation tasks. One is within-                                         0.28
+                                                                                                                                                                    CFR MMD
+                                                                                                                                                                    TARNet
+sample, where the task is to estimate ITE for all units in                                                                                                          Random policy
+                                                                                                   0.26
+a sample for which the (factual) outcome of one treatment
+                                                                                                   0.24
+is observed. This corresponds to the common scenario in
+                                                                                                   0.22
+which a cohort is selected once and not changed. This task
+                                                                                                   0.20
+is non-trivial, as we never observe the ITE for any unit. The
+                                                                                                   0.18
+other is out-of-sample, where the goal is to estimate ITE for
+                                                                                                   0.16
+units with no observed outcomes. This corresponds to the                                              0.0                   0.2            0.4            0.6        0.8             1.0
+
+problem of selecting the best treatment for a new patient.                                                              Treatment inclusion rate
+Within-sample error is computed over both the training and      Figure 3. Policy risk on Jobs as a function of treatment inclusion
+validation sets, out-of-sample error over the test set.         rate. Lower is better. Subjects are included in treatment in order
+                                                                of their estimated treatment effect given by the various methods.
+5.1. Simulated outcome: IHDP                                    CFR Wass is similar to TARNet and is omitted to avoid clutter.
+
+Hill (2011) compiled a dataset for causal effect estima-        with probability q we remove the remaining control obser-
+tion based on the Infant Health and Development Program         vation x that has p̂(t = 1|x) closest to 1, and with proba-
+(IHDP), in which the covariates come from a randomized          bility 1 − q, we remove a random control observation. The
+experiment studying the effects of specialist home visits on    higher q, the more imbalance. For each value of q, we re-
+cognitive test scores. The treatment groups have been made      move 347 observations from each set, leaving 400.
+imbalanced by removing a biased subset of the treated pop-
+ulation. The dataset comprises 747 units (139 treated, 608      5.2. Real-world outcome: Jobs
+control) and 25 covariates measuring aspects of children
+and their mothers. We use the simulated outcome imple-          The study by LaLonde (1986) is a widely used benchmark
+mented as setting “A” in the NPCI package (Dorie, 2016).        in the causal inference community, where the treatment is
+Following Hill (2011), we use the noiseless outcome to          job training and the outcomes are income and employment
+compute the true effect. We report the estimated (finite-       status after training. This dataset combines a randomized
+sample) PEHE loss PEHE (Eq. 1), andPthe absolute er-           study based on the National Supported Work program with
+ror in average treatment
+                                             n
+                         effect ATE = | n1 i=1 (f (xi , 1) −   observational data to form a larger dataset (Smith & Todd,
+              1
+                Pn
+f (xi , 0)) − n i=1 (m1 (xi ) − m0 (xi ))|. The results of      2005). The presence of the randomized subgroup gives a
+the experiments on IHDP are presented in Table 1 (left).        way to estimate the “ground truth” causal effect. The study
+We average over 1000 realizations of the outcomes with          includes 8 covariates such as age and education, as well
+63/27/10 train/validation/test splits.                          as previous earnings. We construct a binary classification
+                                                                task, called Jobs, where the goal is to predict unemploy-
+We also investigate the effects of increasing imbalance be-     ment, using the feature set of Dehejia & Wahba (2002).
+tween the original treatment groups by constructing bi-         Following Smith & Todd (2005), we use the LaLonde ex-
+ased subsamples of the IHDP dataset. A logistic-regression      perimental sample (297 treated, 425 control) and the PSID
+propensity score model is fit to form estimates p̂(t = 1|x)     comparison group (2490 control). There were 482 (15%)
+of the conditional treatment probability. Then, repeatedly,     subjects unemployed by the end of the study. We average
+                         Estimating individual treatment effect: generalization bounds and algorithms
+
+
+         Table 1. Results on IHDP and Jobs within-sample (left) and out-of-sample (right). Lower is better. † Not applicable.
+ Within-sample                                                     Out-of-sample
+                 √      IHDP                     J OBS                            √       IHDP                        J OBS
+                   PEHE       ATE       RP OL        ATT                         PEHE       ATE           RP OL          ATT
+ OLS/LR1         5.8 ± .3    .73 ± .04 .22 ± .00 .01 ± .00 OLS/LR1               5.8 ± .3     .94 ± .06 .23 ± .02 .08 ± .04
+ OLS/LR2         2.4 ± .1    .14 ± .01 .21 ± .00 .01 ± .01 OLS/LR2               2.5 ± .1     .31 ± .02 .24 ± .01 .08 ± .03
+ BLR             5.8 ± .3    .72 ± .04 .22 ± .01 .01 ± .01 BLR                   5.8 ± .3     .93 ± .05 .25 ± .02 .08 ± .03
+ k-NN            2.1 ± .1    .14 ± .01 .02 ± .00 .21 ± .01 k-NN                  4.1 ± .2     .79 ± .05 .26 ± .02 .13 ± .05
+ TMLE            5.0 ± .2    .30 ± .01 .22 ± .00 .02 ± .01 TMLE                       †            †             †              †
+ BART            2.1 ± .1    .23 ± .01 .23 ± .00 .02 ± .00 BART                  2.3 ± .1     .34 ± .02 .25 ± .02 .08 ± .03
+ R.F OR .        4.2 ± .2    .73 ± .05 .23 ± .01 .03 ± .01 R.F OR .              6.6 ± .3     .96 ± .06 .28 ± .02 .09 ± .04
+ C.F OR .        3.8 ± .2    .18 ± .01 .19 ± .00 .03 ± .01 C.F OR .              3.8 ± .2     .40 ± .03 .20 ± .02 .07 ± .03
+ BNN             2.2 ± .1    .37 ± .03 .20 ± .01 .04 ± .01 BNN                   2.1 ± .1     .42 ± .03 .24 ± .02 .09 ± .04
+ TARN ET        .88 ± .02 .26 ± .01 .17 ± .01 .05 ± .02 TARN ET                 .95 ± .02 .28 ± .01 .21 ± .01 .11 ± .04
+ CFR MMD        .73 ± .01 .30 ± .01 .18 ± .00 .04 ± .01 CFR MMD                 .78 ± .02 .31 ± .01 .21 ± .01 .08 ± .03
+ CFR WASS .71 ± .02 .25 ± .01 .17 ± .01 .04 ± .01                  CFR WASS .76 ± .02 .27 ± .01 .21 ± .01 .09 ± .03
+
+
+over 10 train/validation/test splits with ratios 56/24/20.          remarkably well in estimating the ATT. However, being a
+                                                                    linear model, LR can only ascribe a uniform policy - in
+Because all the treated subjects T were part of the original
+                                                                    this case, “treat everyone”. The more nuanced policies
+randomized sample E, we can compute the true         average
+                                               −1 P                 offered by non-linear methods achieve lower policy risk
+treatment effect on the treated by ATT = |T |       i∈T yi −
+          −1 P                                                      in the case of Causal Forests and CFR. This emphasizes
+|C ∩ E|        i∈C∩E yi , where C is the control  group. We         the fact that estimating average effect and individual effect
+report the error ATT = |ATT − |T1 | i∈T (f (xi , 1) −
+                                          P
+                                                                    can require different models. Specifically, while smoothing
+f (xi , 0))|. We cannot evaluate PEHE on this dataset, since       over many units may yield a good ATE estimate, this might
+there is no ground truth for the ITE. Instead, in order             significantly hurt ITE estimation. k-nearest neighbors has
+to evaluate the quality of ITE estimation, we use a mea-            very good within-sample results on Jobs, because evalua-
+sure we call policy risk. The policy risk is defined as             tion is performed over the randomized component, but suf-
+the average loss in value when treating according to the            fers heavily in generalizing out of sample, as expected.
+policy implied by an ITE estimator. In our case, for a
+model f , we let the policy be to treat, πf (x) = 1, if             6. Conclusion
+f (x, 1) − f (x, 0) > λ, and to not treat, πf (x) = 0 oth-
+erwise. The policy risk is RPol (πf ) = 1 − (E[Y1 |πf (x) =         In this paper we give a meaningful and intuitive error-
+1] · p(πf = 1) + E[Y0 |πf (x) = 0] · p(πf = 0)) which               bound for estimating individual treatment effect. Our
+we can estimate for the randomized trial subset of Jobs             bound relates ITE estimation to the classic machine learn-
+by R̂Pol (πf = 1 − (E[Y1 |πf (x) = 1, t = 1] · p(πf =               ing problem of learning from samples, along with methods
+1) + E[Y0 |πf (x) = 0, t = 0] · p(πf = 0)). See figure 3            for measuring distributional distances from samples. The
+for risk as a function of treatment threshold λ, aligned by         bound lends itself naturally to the creation of learning al-
+proportion of treated, and Table 1 for the risk when λ = 0.         gorithms; we focus on using neural nets as representations
+                                                                    and hypotheses. We apply our theory-guided approach to
+5.3. Results                                                        both synthetic and real-world tasks, showing that in every
+                                                                    case our method matches or outperforms the state-of-the-
+We note that indeed imbalance confers an advantage to us-           art. Important open questions are theoretical considerations
+ing the IPM regularization term, as our theoretical results         in choosing the IPM weight α, how to best derive confi-
+indicate, see e.g. the results for CFR WASS and TARNet              dence intervals for our model’s predictions, and integrat-
+on IHDP in Table 1. We also see in Figure 2 that even               ing our work with more complicated causal models such as
+for the harder case of increased imbalance (q > 0) be-              those with hidden confounding or instrumental variables.
+tween treated and control, the relative gain from using our
+method remains significant. On Jobs, our proposed meth-             ACKNOWLEDGMENTS
+ods are better than or competitive with state-of-the-art, but
+we don’t see a significant gain from using IPM penalties.           We thank Aahlad Puli for his assistance with the experi-
+This might be because we evaluate the predictions only on a         ments; Sanjog Misra and Günter J. Hitsch for suggesting
+randomized subset with treatment groups distributed iden-           the policy risk evaluation; Jennifer Hill, Marco Cuturi and
+tically. Non-linear estimators perform significantly better         Esteban Tabak for fruitful conversations; and Stefan Wager
+than linear ones in terms of individual effect (PEHE ). On         for his help with the code for Causal Forests. DS and US
+the Jobs dataset, straightforward logistic regression does          were supported by NSF CAREER award #1350965.
+                          Estimating individual treatment effect: generalization bounds and algorithms
+
+References                                                             immunodeficiency syndrome or death using marginal struc-
+                                                                       tural models. American Journal of Epidemiology, 158(7):687–
+Athey, Susan and Imbens, Guido. Recursive partitioning for             694, 2003.
+  heterogeneous causal effects. Proceedings of the National
+  Academy of Sciences, 113(27):7353–7360, 2016.                      Cortes, Corinna and Mohri, Mehryar. Domain adaptation and
+                                                                       sample bias correction theory and algorithm for regression.
+Athey, Susan, Imbens, Guido W, and Wager, Stefan. Effi-                Theoretical Computer Science, 519:103–126, 2014.
+  cient inference of average treatment effects in high dimen-
+  sions via approximate residual balancing. arXiv preprint           Cuturi, Marco and Doucet, Arnaud. Fast computation of Wasser-
+  arXiv:1604.07125, 2016.                                              stein barycenters. In Proceedings of The 31st International
+                                                                       Conference on Machine Learning, pp. 685–693, 2014.
+Austin, Peter C. An introduction to propensity score methods for
+  reducing the effects of confounding in observational studies.      Daumé III, Hal. Frustratingly easy domain adaptation. Confer-
+  Multivariate behavioral research, 46(3):399–424, 2011.               ence of the Association for Computational Linguistics (ACL),
+                                                                       2007.
+Bareinboim, Elias and Pearl, Judea. Causal inference and the
+  data-fusion problem. Proceedings of the National Academy           Dehejia, Rajeev H and Wahba, Sadek. Propensity score-matching
+  of Sciences, 113(27):7345–7352, 2016.                                methods for nonexperimental causal studies. Review of Eco-
+                                                                       nomics and statistics, 84(1):151–161, 2002.
+Beck, Nathaniel, King, Gary, and Zeng, Langche. Improving
+  quantitative studies of international conflict: A conjecture.      Dorie, Vincent. NPCI: Non-parametrics for Causal Inference.
+  American Political Science Review, 94(01):21–35, 2000.               https://github.com/vdorie/npci, 2016.
+
+Belloni, Alexandre, Chernozhukov, Victor, and Hansen, Chris-         Funk, Michele Jonsson, Westreich, Daniel, Wiesen, Chris,
+  tian. Inference on treatment effects after selection among high-     Stürmer, Til, Brookhart, M Alan, and Davidian, Marie. Dou-
+  dimensional controls. The Review of Economic Studies, 81(2):         bly robust estimation of causal effects. American journal of
+  608–650, 2014.                                                       epidemiology, 173(7):761–767, 2011.
+
+Ben-David, Shai, Blitzer, John, Crammer, Koby, Pereira, Fer-         Ganin, Yaroslav, Ustinova, Evgeniya, Ajakan, Hana, Germain,
+  nando, et al. Analysis of representations for domain adapta-         Pascal, Larochelle, Hugo, Laviolette, François, Marchand,
+  tion. Advances in neural information processing systems, 19:         Mario, and Lempitsky, Victor. Domain-adversarial training
+  137, 2007.                                                           of neural networks. Journal of Machine Learning Research,
+                                                                       17(59):1–35, 2016. URL http://jmlr.org/papers/
+Ben-David, Shai, Blitzer, John, Crammer, Koby, Kulesza, Alex,          v17/15-239.html.
+  Pereira, Fernando, and Vaughan, Jennifer Wortman. A theory
+  of learning from different domains. Machine learning, 79(1-2):     Gretton, Arthur, Smola, Alex, Huang, Jiayuan, Schmittfull, Mar-
+  151–175, 2010.                                                       cel, Borgwardt, Karsten, and Schölkopf, Bernhard. Covariate
+                                                                       shift by kernel mean matching. Dataset shift in machine learn-
+Bengio, Yoshua, Courville, Aaron, and Vincent, Pierre. Repre-          ing, 3(4):5, 2009.
+  sentation learning: A review and new perspectives. Pattern
+                                                                     Gretton, Arthur, Borgwardt, Karsten M., Rasch, Malte J.,
+  Analysis and Machine Intelligence, IEEE Transactions on, 35
+                                                                       Schölkopf, Bernhard, and Smola, Alexander. A kernel two-
+  (8):1798–1828, 2013.
+                                                                       sample test. J. Mach. Learn. Res., 13:723–773, March 2012.
+Breiman, Leo. Random forests. Machine learning, 45(1):5–32,            ISSN 1532-4435.
+  2001.                                                              Gruber, Susan and van der Laan, Mark J. tmle: An r package for
+Chernozhukov, Victor, Chetverikov, Denis, Demirer, Mert, Du-           targeted maximum likelihood estimation. 2011.
+  flo, Esther, Hansen, Christian, et al. Double machine learn-       Hartford, Jason, Lewis, Greg, Leyton-Brown, Kevin, and Taddy,
+  ing for treatment and causal parameters. arXiv preprint              Matt. Counterfactual prediction with deep instrumental vari-
+  arXiv:1608.00060, 2016.                                              ables networks. arXiv preprint arXiv:1612.09596, 2016.
+Chipman, Hugh and McCulloch, Robert. BayesTree: Bayesian             Hill, Jennifer L. Bayesian nonparametric modeling for causal in-
+  Additive Regression Trees. https://cran.r-project.                   ference. Journal of Computational and Graphical Statistics,
+  org/web/packages/BayesTree, 2016.                                    20(1), 2011.
+Chipman, Hugh A, George, Edward I, and McCulloch, Robert E.          Hoyer, Patrik O, Janzing, Dominik, Mooij, Joris M, Peters, Jonas,
+  BART: Bayesian additive regression trees. The Annals of Ap-          and Schölkopf, Bernhard. Nonlinear causal discovery with ad-
+  plied Statistics, pp. 266–298, 2010.                                 ditive noise models. In Advances in neural information pro-
+                                                                       cessing systems, pp. 689–696, 2009.
+Clevert, Djork-Arné, Unterthiner, Thomas, and Hochreiter, Sepp.
+  Fast and accurate deep network learning by exponential linear      Imbens, Guido W and Wooldridge, Jeffrey M. Recent develop-
+  units (elus). International Conference on Learning Represen-         ments in the econometrics of program evaluation. Journal of
+  tations, 2016.                                                       economic literature, 47(1):5–86, 2009.
+Cole, Stephen R, Hernán, Miguel A, Robins, James M, Anastos,        Johansson, Fredrik D., Shalit, Uri, and Sontag, David. Learn-
+  Kathryn, Chmiel, Joan, Detels, Roger, Ervin, Carolyn, Feld-          ing representations for counterfactual inference. In Proceed-
+  man, Joseph, Greenblatt, Ruth, Kingsley, Lawrence, et al. Ef-        ings of the 33rd International Conference on Machine Learn-
+  fect of highly active antiretroviral therapy on time to acquired     ing (ICML), 2016.
+                           Estimating individual treatment effect: generalization bounds and algorithms
+
+Kingma, Diederik and Ba, Jimmy. Adam: A method for stochas-             Strehl, Alex, Langford, John, Li, Lihong, and Kakade, Sham M.
+  tic optimization. International Conference on Learning Repre-            Learning from logged implicit exploration data. In Advances in
+  sentations, 2015.                                                        Neural Information Processing Systems, pp. 2217–2225, 2010.
+
+LaLonde, Robert J. Evaluating the econometric evaluations of            Sun, Baochen, Feng, Jiashi, and Saenko, Kate. Return of frustrat-
+  training programs with experimental data. The American eco-             ingly easy domain adaptation. In Thirtieth AAAI Conference
+  nomic review, pp. 604–620, 1986.                                        on Artificial Intelligence, 2016.
+
+Maathuis, Marloes H, Colombo, Diego, Kalisch, Markus, and               Swaminathan, Adith and Joachims, Thorsten. Batch learning
+  Bühlmann, Peter. Predicting causal effects in large-scale sys-         from logged bandit feedback through counterfactual risk min-
+  tems from observational data. Nature Methods, 7(4):247–248,             imization. Journal of Machine Learning Research, 16:1731–
+  2010.                                                                   1755, 2015.
+
+Mansour, Yishay, Mohri, Mehryar, and Rostamizadeh, Afshin.              Taddy, Matt, Gardner, Matt, Chen, Liyun, and Draper, David. A
+  Domain adaptation: Learning bounds and algorithms. 2009.                nonparametric bayesian analysis of heterogenous treatment ef-
+                                                                          fects in digital experimentation. Journal of Business & Eco-
+Mooij, Joris M, Peters, Jonas, Janzing, Dominik, Zscheischler,            nomic Statistics, 34(4):661–672, 2016.
+ Jakob, and Schölkopf, Bernhard. Distinguishing cause from ef-         Triantafillou, Sofia and Tsamardinos, Ioannis. Constraint-based
+ fect using observational data: methods and benchmarks. Jour-              causal discovery from multiple interventions over overlapping
+ nal of Machine Learning Research, 17(32):1–102, 2016.                     variable sets. Journal of Machine Learning Research, 16:
+                                                                           2147–2205, 2015.
+Müller, Alfred. Integral probability metrics and their generating
+  classes of functions. Advances in Applied Probability, pp. 429–       Villani, Cédric. Optimal transport: old and new, volume 338.
+  443, 1997.                                                               Springer Science & Business Media, 2008.
+Pan, Sinno Jialin, Tsang, Ivor W, Kwok, James T, and Yang,              Wager, Stefan and Athey, Susan.        Estimation and in-
+  Qiang. Domain adaptation via transfer component analysis.               ference of heterogeneous treatment effects using random
+  Neural Networks, IEEE Transactions on, 22(2):199–210, 2011.             forests.   arXiv preprint arXiv:1510.04342. https://
+                                                                          github.com/susanathey/causalTree, 2015.
+Pearl, Judea. Causality. Cambridge university press, 2009.
+
+Pearl, Judea. Detecting latent heterogeneity. Sociological Meth-
+  ods & Research, pp. 0049124115600597, 2015.
+
+Peysakhovich, Alexander and Lada, Akos. Combining observa-
+  tional and experimental data to find heterogeneous treatment
+  effects. arXiv preprint arXiv:1611.02385, 2016.
+
+Robins, James. A new approach to causal inference in mortality
+  studies with a sustained exposure periodapplication to control
+  of the healthy worker survivor effect. Mathematical Modelling,
+  7(9-12):1393–1512, 1986.
+
+Rolling, Craig Anthony. Estimation of Conditional Average Treat-
+  ment Effects. PhD thesis, University of Minnesota, 2014.
+
+Rubin, Donald B. Causal inference using potential outcomes.
+  Journal of the American Statistical Association, 2011.
+
+Shalev-Shwartz, Shai and Ben-David, Shai. Understanding ma-
+  chine learning: From theory to algorithms. Cambridge Uni-
+  versity Press, 2014.
+
+Shpitser, Ilya and Pearl, Judea. Identification of conditional inter-
+  ventional distributions. In Proceedings of the Twenty-second
+  Conference on Uncertainty in Artificial Intelligence, pp. 437–
+  444. UAI Press, 2006.
+
+Smith, Jeffrey A and Todd, Petra E. Does matching overcome
+  LaLonde’s critique of nonexperimental estimators? Journal of
+  econometrics, 125(1):305–353, 2005.
+
+Sriperumbudur, Bharath K, Fukumizu, Kenji, Gretton, Arthur,
+   Schölkopf, Bernhard, Lanckriet, Gert RG, et al. On the em-
+   pirical estimation of integral probability metrics. Electronic
+   Journal of Statistics, 6:1550–1599, 2012.
+
