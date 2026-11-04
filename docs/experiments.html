@@ -119,6 +119,9 @@ tr.skip td { color: var(--muted); }
 ol.read, ul.read { max-width: 74ch; padding-left: 22px; }
 ol.read li, ul.read li { margin: 6px 0; }
 footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+.card .eq { white-space: normal; line-height: 1.8; }
+.card ul.vl { list-style: none; padding-left: 0; font-size: 14px; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 6px; }
+.card ul.vl li { margin: 4px 0; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -208,18 +211,65 @@ footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line);
 <p>两个数据集能算的量不同：IHDP 知道每个人的真实效应，Jobs 不知道，只能借随机化部分做间接评估。</p>
 <div class="grid2">
   <div class="card"><h4>√ε<sub>PEHE</sub>（IHDP）</h4>
-    <div class="eq">√( (1/n) Σᵢ ( τ̂(xᵢ) − τ(xᵢ) )² )</div>
-    <p>个体效应的均方根误差，越小越好。需要真实 τ(x)，所以只能用在 IHDP 上。这是论文最看重的指标，也是 Theorem 1 直接在控制的量。</p></div>
+    <div class="eq">√( (1/n) Σ<sub>i=1</sub><sup>n</sup> ( τ̂(xᵢ) − τ(xᵢ) )² )</div>
+    <p>个体效应的均方根误差，越小越好。需要真实 τ(x)，所以只能用在 IHDP 上。这是论文最看重的指标，也是 Theorem 1 直接在控制的量。</p>
+    <ul class="vl">
+      <li><b>n</b>：被评估的样本数；<b>xᵢ</b>：第 i 个样本的特征。</li>
+      <li><b>τ̂(xᵢ) = f(xᵢ,1) − f(xᵢ,0)</b>：模型估计的个体效应。</li>
+      <li><b>τ(xᵢ)</b>：真实个体效应；IHDP 的结果是模拟的，论文用<b>无噪声</b>的结果来算它。</li>
+      <li>论文给出的是 Eq. 1 的 ε<sub>PEHE</sub>，并说报告"有限样本"的 PEHE；上面这个样本平均的写法是我按 Eq. 1 写的，论文没有单独写出此式。</li>
+    </ul></div>
   <div class="card"><h4>ε<sub>ATE</sub>（IHDP）</h4>
-    <div class="eq">| (1/n)Σ(f(xᵢ,1) − f(xᵢ,0)) − (1/n)Σ(m₁(xᵢ) − m₀(xᵢ)) |</div>
-    <p>平均效应的绝对误差。正负误差会相互抵消，所以它好不等于个体估计好。</p></div>
+    <div class="eq">| (1/n) Σ<sub>i=1</sub><sup>n</sup> ( f(xᵢ,1) − f(xᵢ,0) ) − (1/n) Σ<sub>i=1</sub><sup>n</sup> ( m₁(xᵢ) − m₀(xᵢ) ) |</div>
+    <p>平均效应的绝对误差。正负误差会相互抵消，所以它好不等于个体估计好。</p>
+    <ul class="vl">
+      <li><b>f(x,t)</b>：模型对特征 x、处理 t 的结果预测。</li>
+      <li><b>m₁(x), m₀(x)</b>：真实的条件均值结果（IHDP 里是无噪声的模拟结果）；二者之差就是真实 τ(x)。</li>
+      <li>两个求和里的第一个是模型估计的平均效应，第二个是真实平均效应。</li>
+    </ul></div>
   <div class="card"><h4>ε<sub>ATT</sub>（Jobs）</h4>
-    <div class="eq">| ATT − (1/|T|) Σ<sub>i∈T</sub>(f(xᵢ,1) − f(xᵢ,0)) |</div>
-    <p>处理组上的平均效应误差。"真值" ATT 来自随机化部分：处理组的平均结果，减去随机对照组的平均结果。</p></div>
+    <div class="eq">ATT = |T|<sup>−1</sup> Σ<sub>i∈T</sub> yᵢ − |C∩E|<sup>−1</sup> Σ<sub>i∈C∩E</sub> yᵢ</div>
+    <div class="eq">ε<sub>ATT</sub> = | ATT − (1/|T|) Σ<sub>i∈T</sub> ( f(xᵢ,1) − f(xᵢ,0) ) |</div>
+    <p>处理组上的平均效应误差。"真值" ATT 来自随机化部分：处理组的平均结果，减去随机对照组的平均结果。下面有详细解释。</p>
+    <ul class="vl">
+      <li><b>T</b>：处理组（接受了培训的人）。论文说它们<b>全部</b>来自原始的随机实验。</li>
+      <li><b>C</b>：对照组；<b>E</b>：原始的随机化样本。<b>C∩E</b> 就是随机化部分里的对照组（425 人），不含 PSID 的 2490 人。</li>
+      <li><b>yᵢ</b>：第 i 个人的观测结果；<b>|·|</b>：集合的人数。</li>
+      <li><b>f(xᵢ,1) − f(xᵢ,0)</b>：模型对处理组第 i 个人估计的效应。</li>
+    </ul></div>
   <div class="card"><h4>策略风险 R<sub>Pol</sub>（Jobs）</h4>
-    <div class="eq">1 − ( E[Y₁|π=1]·p(π=1) + E[Y₀|π=0]·p(π=0) )</div>
-    <p>按估计出的 ITE 制定"谁该处理"的策略 π，看按这个策略做决策损失了多少价值，越小越好。它不需要 ITE 真值。</p></div>
+    <div class="eq">π<sub>f</sub>(x) = 1 若 f(x,1) − f(x,0) &gt; λ，否则 0</div>
+    <div class="eq">R<sub>Pol</sub>(π<sub>f</sub>) = 1 − ( E[Y₁ | π<sub>f</sub>(x)=1]·p(π<sub>f</sub>=1) + E[Y₀ | π<sub>f</sub>(x)=0]·p(π<sub>f</sub>=0) )</div>
+    <div class="eq">R̂<sub>Pol</sub> = 1 − ( E[Y₁ | π<sub>f</sub>(x)=1, t=1]·p(π<sub>f</sub>=1) + E[Y₀ | π<sub>f</sub>(x)=0, t=0]·p(π<sub>f</sub>=0) )</div>
+    <p>按估计出的 ITE 制定"谁该处理"的策略 π，看按这个策略做决策损失了多少价值，越小越好。它不需要 ITE 真值。第三行是在随机化部分上的估计式。</p>
+    <ul class="vl">
+      <li><b>π<sub>f</sub>(x)</b>：由模型 f 导出的策略，1 表示处理，0 表示不处理。</li>
+      <li><b>λ</b>：处理阈值；表 1 用 λ = 0；Fig 3 把 λ 换成"处理纳入比例"来画。</li>
+      <li><b>E[Y₁ | π=1]·p(π=1)</b>：策略建议处理的那部分人在处理下的平均结果，乘以这部分人的占比；Y₀ 项同理。两项之和是策略的"价值"。</li>
+      <li><b>R̂<sub>Pol</sub></b>：只用 π 与实际分配 t 一致的随机化样本来估计（见下面的演示）。</li>
+    </ul></div>
 </div>
+
+<h3>ATT 是什么，为什么能用来评估 <span class="tag paper">论文 Sec 5.2</span> <span class="tag mine">解释与数字例子是自编</span></h3>
+<div class="grid3">
+  <div class="card"><h4>ATT 是什么</h4>
+    <p>ATT（Average Treatment effect on the Treated）：<b>只在实际接受了处理的人身上</b>平均的处理效应，即 E[Y₁ − Y₀ | t=1]（这是标准定义；论文给的是样本版公式）。</p>
+    <p>三种效应的区别：<b>ITE</b> τ(x) 每类人一个值；<b>ATE</b> 是 τ 在全体上的平均；<b>ATT</b> 是在处理组上的平均。</p></div>
+  <div class="card"><h4>为什么 Jobs 上是 ATT</h4>
+    <p>要估 ATT 就得知道"处理组的人如果没培训会怎样"，即 Y₀。<b>随机对照组 C∩E 正是它的无偏替身</b>：它和处理组由同一次随机分配产生，分配前分布相同。</p>
+    <p>PSID 的 2490 人来源不同、与处理组差别大，不能当替身；也没有与它们对应的随机处理组可比，所以不能算全体的 ATE。论文的原话：因为所有处理组样本都属于原始随机样本，所以能算出真实的 ATT。</p></div>
+  <div class="card"><h4>评估的原理</h4>
+    <p>模型对处理组每个人给出 f(x,1)（事实预测）和 f(x,0)（<b>反事实预测</b>，没有任何人观测过）。把差值在处理组上平均，就是"模型认为的 ATT"。</p>
+    <p>与随机试验得到的 ATT 相比，差的绝对值就是 ε<sub>ATT</sub>：<b>检验模型对处理组人群的反事实预测，平均起来准不准。</b>数值是结果之差，Jobs 的结果是二值的，所以单位是"好结果概率"的差。</p></div>
+</div>
+
+<figure class="fig" style="margin-top:14px">
+  <p style="margin-top:0"><b>一个数字例子</b>（自编）：处理组 5 人，观测结果 y = 1, 1, 0, 1, 1（y=1 为好结果），均值 0.8。随机对照组 4 人，y = 1, 0, 1, 0，均值 0.5。所以 ATT = 0.8 − 0.5 = <b>0.3</b>。</p>
+  <div class="scroll"><table class="data" style="min-width:560px"><thead><tr><th>模型</th><th>对 5 个处理组成员估计的效应 f(x,1) − f(x,0)</th><th class="num">平均</th><th class="num">ε<sub>ATT</sub></th></tr></thead><tbody>
+    <tr><td>模型 A</td><td>0.2, 0.4, 0.3, 0.2, 0.4</td><td class="num">0.30</td><td class="num">0.00</td></tr>
+    <tr><td>模型 B</td><td>0.9, −0.3, 0.6, 0.0, 0.3</td><td class="num">0.30</td><td class="num">0.00</td></tr></tbody></table></div>
+  <figcaption><b>ε<sub>ATT</sub> 的局限：</b>两个模型的 ε<sub>ATT</sub> 都是 0，可模型 B 的个体估计忽高忽低。因为只比较平均，正负误差会相互抵消，它不能区分好坏的个体估计。这就是论文在 Jobs 上还要加策略风险的原因，也解释了为什么逻辑回归在 ε<sub>ATT</sub> 上很好（样本内 0.01），但只能给出"全部处理"这种统一策略。另外，随机化部分只有 722 人，这个 ATT "真值"本身也带抽样误差，只是目前能得到的最可信的参照；论文没有交代 ATT 真值具体在哪个评估子集上计算，我按文字理解为被评估的那批样本里的 T 与 C∩E。</figcaption>
+</figure>
 
 <h3>样本内与样本外 <span class="tag paper">论文 Sec 5</span></h3>
 <div class="grid2">
