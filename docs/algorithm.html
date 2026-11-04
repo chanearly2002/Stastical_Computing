@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>CFR 算法图解</title>
+<style>
+/* Layout: one reading column; diagrams and demos sit in wider "figure" blocks.
+   Colors encode roles: treated = warm, control = cool, representation = teal, IPM = rose. */
+:root {
+  --bg: #F4F6F8;
+  --surface: #FFFFFF;
+  --fg: #14202B;
+  --muted: #566573;
+  --line: #D6DCE3;
+  --soft: #EBEFF3;
+  --treat: #C2500F;
+  --ctrl: #1B6BB3;
+  --rep: #0B857E;
+  --ipm: #B0214D;
+  --mark: #FFF1BF;
+  --font-body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E151C; --surface: #16202A; --fg: #E5ECF3; --muted: #9AA9B8; --line: #2B3844; --soft: #1D2A36;
+    --treat: #FF9060; --ctrl: #64B1F2; --rep: #3FD0C6; --ipm: #FF6C98; --mark: #4A4020;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E151C; --surface: #16202A; --fg: #E5ECF3; --muted: #9AA9B8; --line: #2B3844; --soft: #1D2A36;
+  --treat: #FF9060; --ctrl: #64B1F2; --rep: #3FD0C6; --ipm: #FF6C98; --mark: #4A4020;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.75;
+  padding-block: 0 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 920px; margin: 0 auto; }
+header.top { padding: 40px 0 8px; }
+.kicker { font-size: 13px; letter-spacing: .08em; color: var(--muted); }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 6px 0 14px; text-wrap: balance; }
+h2 { font-size: clamp(22px, 3.4vw, 28px); line-height: 1.3; margin: 56px 0 10px; text-wrap: balance; }
+h3 { font-size: 18px; margin: 30px 0 6px; }
+p { margin: 10px 0; max-width: 68ch; }
+.lead { font-size: 18px; color: var(--fg); max-width: 62ch; }
+.muted { color: var(--muted); }
+code, .mono { font-family: var(--font-mono); font-size: .92em; }
+sub, sup { line-height: 0; }
+.eq { font-family: var(--font-mono); background: var(--soft); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; margin: 12px 0; overflow-x: auto; white-space: nowrap; max-width: 100%; }
+.t1 { color: var(--treat); font-weight: 600; }
+.t0 { color: var(--ctrl); font-weight: 600; }
+.rep { color: var(--rep); font-weight: 600; }
+.ipm { color: var(--ipm); font-weight: 600; }
+.tag { display: inline-block; font-size: 12px; line-height: 1; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); vertical-align: middle; margin-left: 6px; font-weight: 500; }
+.tag.paper { color: var(--rep); border-color: var(--rep); }
+.tag.mine { color: var(--ipm); border-color: var(--ipm); }
+.toc { display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 18px 0 0; padding: 0; list-style: none; }
+.toc a { display: inline-block; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--fg); text-decoration: none; background: var(--surface); font-size: 14px; }
+.toc a:hover { border-color: var(--rep); }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--rep); outline-offset: 2px; }
+figure.fig { margin: 18px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+figure.fig figcaption { font-size: 14px; color: var(--muted); margin-top: 10px; max-width: 74ch; }
+.scroll { overflow-x: auto; max-width: 100%; }
+svg { display: block; max-width: 100%; height: auto; }
+svg text { font-family: var(--font-body); fill: var(--fg); }
+svg .mut { fill: var(--muted); }
+.box { fill: var(--surface); stroke: var(--fg); stroke-width: 1.5; }
+.box.rep { fill: color-mix(in srgb, var(--rep) 14%, var(--surface)); stroke: var(--rep); }
+.box.t1 { fill: color-mix(in srgb, var(--treat) 14%, var(--surface)); stroke: var(--treat); }
+.box.t0 { fill: color-mix(in srgb, var(--ctrl) 14%, var(--surface)); stroke: var(--ctrl); }
+.box.ipm { fill: color-mix(in srgb, var(--ipm) 12%, var(--surface)); stroke: var(--ipm); }
+.arrow { stroke: var(--fg); stroke-width: 1.6; fill: none; }
+.arrow.dash { stroke-dasharray: 5 4; }
+.dim { opacity: .22; }
+.step-off { opacity: .3; }
+.step-on .box { stroke-width: 3; }
+svg .fillfg { fill: var(--fg); }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 4px 0 12px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button, .btn { font: inherit; font-size: 14px; padding: 8px 14px; border: 0; background: var(--surface); color: var(--fg); cursor: pointer; min-height: 40px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.btn { border: 1px solid var(--line); border-radius: 8px; }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.live { background: var(--soft); border-radius: 8px; padding: 10px 14px; font-size: 15px; margin-top: 8px; max-width: none; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 720px) { .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.card h4 { margin: 0 0 4px; font-size: 16px; }
+.card p { margin: 6px 0; font-size: 15px; }
+.chain { display: grid; gap: 12px; margin: 16px 0; }
+.chain .card .n { font-size: 13px; color: var(--muted); letter-spacing: .06em; }
+.sliderrow { display: grid; grid-template-columns: 112px minmax(0, 1fr) 72px; gap: 10px; align-items: center; margin: 6px 0; font-size: 15px; }
+.sliderrow output { font-family: var(--font-mono); text-align: right; }
+input[type="range"] { width: 100%; accent-color: var(--rep); min-height: 28px; }
+.readout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.readout div { background: var(--soft); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+.readout b { display: block; font-family: var(--font-mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+@media (max-width: 560px) { .readout { grid-template-columns: minmax(0, 1fr); } .sliderrow { grid-template-columns: 92px minmax(0, 1fr) 60px; } }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th, td { border-bottom: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; font-size: 13px; }
+.callout { border-left: 3px solid var(--ipm); background: var(--soft); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; max-width: 72ch; }
+.callout.ok { border-left-color: var(--rep); }
+footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .dim, .step-off { transition: opacity .25s; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">Shalit · Johansson · Sontag, ICML 2017 · Sec 4 与 Algorithm 1</div>
+  <h1>CFR 算法图解</h1>
+  <p class="lead">Theorem 1 说：个体效应的误差，被两个处理组各自的预测误差与两组分布的距离控制。算法这一节只做一件事：把这个上界直接当成损失，训练一个神经网络。下面分三步讲清楚它长什么样、目标函数怎么来、训练时每一步在算什么。</p>
+  <ul class="toc">
+    <li><a href="#net">① 网络长什么样</a></li>
+    <li><a href="#obj">② 目标函数怎么来</a></li>
+    <li><a href="#train">③ 训练过程</a></li>
+  </ul>
+</header>
+
+<!-- ============ 1. NETWORK ============ -->
+<section id="net">
+<h2>① 网络长什么样 <span class="tag paper">论文 Fig 1</span></h2>
+<p>一个共享的表示网络 <span class="rep">Φ</span>，后面接两个互不干扰的输出头：<span class="t1">h₁</span> 预测"用新药"的结果，<span class="t0">h₀</span> 预测"用旧药"的结果。选一种样本，看看数据怎么走、谁被更新。</p>
+
+<figure class="fig">
+  <div class="controls">
+    <div class="seg" role="group" aria-label="选择样本的处理">
+      <button id="btn-t1" aria-pressed="true" type="button">样本用了新药 (t=1)</button>
+      <button id="btn-t0" aria-pressed="false" type="button">样本用了旧药 (t=0)</button>
+    </div>
+  </div>
+  <div class="scroll">
+  <svg id="netsvg" viewBox="0 0 760 340" width="760" role="img" aria-label="CFR 网络：特征 x 经过共享表示网络 Φ 得到 Φ(x)，再分别进入处理头 h1 和对照头 h0；Φ(x) 上还接有 IPM 惩罚" style="min-width:680px">
+    <defs>
+      <marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="fillfg"/></marker>
+    </defs>
+    <!-- shared part -->
+    <g class="shared">
+      <rect class="box" x="8" y="140" width="92" height="60" rx="8"/>
+      <text x="54" y="166" text-anchor="middle" font-size="15">x</text>
+      <text x="54" y="186" text-anchor="middle" font-size="11" class="mut">特征 (d 维)</text>
+      <line class="arrow" x1="100" y1="170" x2="136" y2="170" marker-end="url(#ah)"/>
+      <rect class="box rep" x="140" y="120" width="40" height="100" rx="6"/>
+      <rect class="box rep" x="192" y="120" width="40" height="100" rx="6"/>
+      <rect class="box rep" x="244" y="120" width="40" height="100" rx="6"/>
+      <text x="212" y="108" text-anchor="middle" font-size="13" style="fill:var(--rep)">表示网络 Φ</text>
+      <text x="212" y="238" text-anchor="middle" font-size="11" class="mut">3 层全连接 + ELU</text>
+      <text x="212" y="253" text-anchor="middle" font-size="11" class="mut">两个头共用</text>
+      <line class="arrow" x1="284" y1="170" x2="318" y2="170" marker-end="url(#ah)"/>
+      <rect class="box rep" x="322" y="140" width="84" height="60" rx="8"/>
+      <text x="364" y="166" text-anchor="middle" font-size="15">Φ(x)</text>
+      <text x="364" y="186" text-anchor="middle" font-size="11" class="mut">归一化后的表示</text>
+    </g>
+    <!-- IPM -->
+    <g class="shared">
+      <line class="arrow dash" x1="364" y1="200" x2="364" y2="262" marker-end="url(#ah)" style="stroke:var(--ipm)"/>
+      <rect class="box ipm" x="290" y="266" width="148" height="58" rx="8"/>
+      <text x="364" y="290" text-anchor="middle" font-size="13" style="fill:var(--ipm)">α · IPM</text>
+      <text x="364" y="309" text-anchor="middle" font-size="11" class="mut">Φ|t=0 与 Φ|t=1 的距离</text>
+    </g>
+    <!-- branches -->
+    <g id="path1">
+      <polyline class="arrow" points="406,170 428,170 428,70 446,70" marker-end="url(#ah)"/>
+      <rect class="box t1" x="450" y="40" width="40" height="60" rx="6"/>
+      <rect class="box t1" x="498" y="40" width="40" height="60" rx="6"/>
+      <rect class="box t1" x="546" y="40" width="40" height="60" rx="6"/>
+      <text x="518" y="28" text-anchor="middle" font-size="13" style="fill:var(--treat)">处理头 h₁</text>
+      <line class="arrow" x1="586" y1="70" x2="610" y2="70" marker-end="url(#ah)"/>
+      <rect class="box t1" x="614" y="48" width="54" height="44" rx="8"/>
+      <text x="641" y="75" text-anchor="middle" font-size="14">ŷ₁</text>
+      <line class="arrow" x1="668" y1="70" x2="688" y2="70" marker-end="url(#ah)"/>
+      <rect class="box" x="692" y="48" width="62" height="44" rx="8"/>
+      <text x="723" y="66" text-anchor="middle" font-size="12">wᵢ·L</text>
+      <text x="723" y="82" text-anchor="middle" font-size="11" class="mut">对 yᵢ</text>
+    </g>
+    <g id="path0">
+      <polyline class="arrow" points="428,170 428,270 446,270" marker-end="url(#ah)"/>
+      <rect class="box t0" x="450" y="240" width="40" height="60" rx="6"/>
+      <rect class="box t0" x="498" y="240" width="40" height="60" rx="6"/>
+      <rect class="box t0" x="546" y="240" width="40" height="60" rx="6"/>
+      <text x="518" y="318" text-anchor="middle" font-size="13" style="fill:var(--ctrl)">对照头 h₀</text>
+      <line class="arrow" x1="586" y1="270" x2="610" y2="270" marker-end="url(#ah)"/>
+      <rect class="box t0" x="614" y="248" width="54" height="44" rx="8"/>
+      <text x="641" y="275" text-anchor="middle" font-size="14">ŷ₀</text>
+      <line class="arrow" x1="668" y1="270" x2="688" y2="270" marker-end="url(#ah)"/>
+      <rect class="box" x="692" y="248" width="62" height="44" rx="8"/>
+      <text x="723" y="266" text-anchor="middle" font-size="12">wᵢ·L</text>
+      <text x="723" y="282" text-anchor="middle" font-size="11" class="mut">对 yᵢ</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption>图 1 的结构。每个样本只带有一个观测结果 yᵢ，所以只有它实际接受的处理对应的头参与计算并被更新；Φ 和 IPM 项对两种样本都起作用。</figcaption>
+  <p class="live" id="netlive" aria-live="polite"></p>
+</figure>
+
+<h3>三个设计问题</h3>
+<div class="grid3">
+  <div class="card"><h4>为什么 Φ 共享？</h4><p>两个头学的是同一群人在两种处理下的结果，大部分结构（哪些特征重要）是共通的。共享表示层让两组样本一起训练 Φ，统计力量不被一分为二。</p></div>
+  <div class="card"><h4>为什么要两个头？</h4><p>把 t 当成一个输入拼到 Φ 后面，当 Φ 有几百维时，t 只是其中一个数，作用容易被淹没。两个头让"处理"决定走哪条路，作用不会丢。</p></div>
+  <div class="card"><h4>为什么 IPM 接在 Φ(x) 上？</h4><p>Theorem 1 里的距离是表示空间里两组分布的距离。所以惩罚必须加在 Φ(x) 上，让网络把两组"拉近"的同时，仍要预测准。</p></div>
+</div>
+
+<figure class="fig" style="margin-top:18px">
+  <div class="grid2">
+    <div>
+      <div class="kicker">前作的做法：拼接</div>
+      <svg viewBox="0 0 330 110" role="img" aria-label="拼接做法：Φ(x) 与 t 拼成一个向量输入单个网络">
+        <defs><marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fillfg"/></marker></defs>
+        <rect class="box rep" x="8" y="20" width="150" height="30" rx="6"/><text x="83" y="40" text-anchor="middle" font-size="12">Φ(x)：几百个数</text>
+        <rect class="box t1" x="162" y="20" width="22" height="30" rx="4"/><text x="173" y="68" text-anchor="middle" font-size="11" style="fill:var(--treat)">t</text>
+        <line class="arrow" x1="96" y1="50" x2="96" y2="80" marker-end="url(#ah2)"/><line class="arrow" x1="173" y1="50" x2="130" y2="80" marker-end="url(#ah2)"/>
+        <rect class="box" x="60" y="82" width="110" height="24" rx="6"/><text x="115" y="99" text-anchor="middle" font-size="12">单个网络 h</text>
+        <text x="206" y="44" font-size="12" class="mut">t 只占 1 个位置</text>
+      </svg>
+    </div>
+    <div>
+      <div class="kicker">本文的做法：两个头</div>
+      <svg viewBox="0 0 330 110" role="img" aria-label="两个头做法：t 决定走 h1 还是 h0">
+        <rect class="box rep" x="8" y="38" width="90" height="34" rx="6"/><text x="53" y="60" text-anchor="middle" font-size="12">Φ(x)</text>
+        <line class="arrow" x1="98" y1="55" x2="140" y2="28" marker-end="url(#ah2)"/><line class="arrow" x1="98" y1="55" x2="140" y2="84" marker-end="url(#ah2)"/>
+        <rect class="box t1" x="142" y="12" width="70" height="30" rx="6"/><text x="177" y="32" text-anchor="middle" font-size="12">h₁</text>
+        <rect class="box t0" x="142" y="70" width="70" height="30" rx="6"/><text x="177" y="90" text-anchor="middle" font-size="12">h₀</text>
+        <text x="226" y="32" font-size="12" class="mut">t=1 走这里</text><text x="226" y="90" font-size="12" class="mut">t=0 走这里</text>
+      </svg>
+    </div>
+  </div>
+  <figcaption>两种做法的差别。第二种让处理的作用体现在"用哪个头"，不依赖 Φ 的维度。</figcaption>
+</figure>
+</section>
+
+<!-- ============ 2. OBJECTIVE ============ -->
+<section id="obj">
+<h2>② 目标函数怎么来 <span class="tag paper">Eq. 3</span></h2>
+<p>从 Theorem 1 的右边出发，改成能在样本上计算的形式，一共四步。</p>
+
+<div class="chain">
+  <div class="card"><div class="n">第 1 步</div><h4>理论上界（Eq. 2）</h4>
+    <div class="eq">PEHE ≤ 2 [ ε<sub>F</sub><sup>t=0</sup> + ε<sub>F</sub><sup>t=1</sup> + B<sub>Φ</sub>·IPM − 2σ² ]</div>
+    <p>右边的三个东西都和模型有关（噪声项 −2σ² 是常数，不影响优化）：两组各自的预测误差，以及两组在表示空间里的距离。</p></div>
+  <div class="card"><div class="n">第 2 步</div><h4>换成样本平均，得到加权损失</h4>
+    <div class="eq">ε̂<sup>t=1</sup> + ε̂<sup>t=0</sup> = (1/n) Σᵢ 2wᵢ · ℓᵢ ,&nbsp; wᵢ = tᵢ/(2u) + (1−tᵢ)/(2(1−u))</div>
+    <p>把处理组样本的损失除以 n₁、对照组的除以 n₀，再相加，就等于用权重 wᵢ 做平均。权重的作用是让两组各占一半，不让人数多的那组主导训练。下面有计算器。</p></div>
+  <div class="card"><div class="n">第 3 步</div><h4>B<sub>Φ</sub> 算不出来，并入 α</h4>
+    <p>B<sub>Φ</sub> 依赖损失函数与表示的具体性质，一般无法计算。算法里把它当作超参数的一部分：<span class="ipm">α · IPM</span>。</p></div>
+  <div class="card"><div class="n">第 4 步</div><h4>补上两件实际需要的东西</h4>
+    <p>① 对假设网络参数加 ℓ₂ 正则 λ·R(h)，防过拟合；② 对 Φ 做归一化（投影，或固定尺度的 batch-norm）。第 ② 件事的理由见下面的演示。</p></div>
+</div>
+
+<div class="eq" style="white-space:normal">min<sub>h,Φ</sub> &nbsp;(1/n) Σᵢ wᵢ · L( h(Φ(xᵢ), tᵢ), yᵢ ) &nbsp;+&nbsp; λ · R(h) &nbsp;+&nbsp; α · IPM<sub>G</sub>( {Φ(xᵢ)}<sub>tᵢ=0</sub>, {Φ(xᵢ)}<sub>tᵢ=1</sub> )</div>
+<table>
+  <thead><tr><th>项</th><th>对应 Theorem 1</th><th>作用</th></tr></thead>
+  <tbody>
+    <tr><td>加权预测损失</td><td>ε<sub>F</sub><sup>t=1</sup> + ε<sub>F</sub><sup>t=0</sup></td><td>预测要准，保留与结果有关的信息</td></tr>
+    <tr><td><span class="ipm">α · IPM</span></td><td>B<sub>Φ</sub> · IPM</td><td>两组表示要像，减少外推到"没见过的人群"的误差</td></tr>
+    <tr><td>λ · R(h)</td><td>（普通正则）</td><td>防止预测头过拟合</td></tr>
+  </tbody>
+</table>
+<p class="muted" style="margin-top:10px">α = 0 时第二项消失，就是 <b>TARNet</b>；α &gt; 0 是 <b>CFR</b>，IPM 取 Wasserstein 或线性核 MMD²，分别记作 CFR-Wass 与 CFR-MMD。</p>
+
+<h3>权重计算器 <span class="tag paper">Eq. 3 的 wᵢ</span></h3>
+<figure class="fig">
+  <div class="sliderrow"><label for="u-range">处理组比例 u</label><input id="u-range" type="range" min="0.05" max="0.95" step="0.01" value="0.40"><output id="u-out" for="u-range">0.40</output></div>
+  <div class="scroll"><svg id="wsvg" viewBox="0 0 640 190" width="640" style="min-width:520px" role="img" aria-label="加权前后两组样本的总权重对比"></svg></div>
+  <p class="live" id="wlive"></p>
+  <figcaption>设样本数 n = 1000。不加权时，两组的总权重是 n·u 与 n·(1−u)；加权后两组都是 n/2。每组内部所有样本权重相同，所以这不是 IPW 那种按个体放大的权重，不会出现个别样本权重爆炸的问题。</figcaption>
+</figure>
+
+<h3>演示：IPM 与预测损失怎么拉扯 <span class="tag mine">自编演示，不是论文结果</span></h3>
+<p>下面把"表示 Φ"简化成一个方向：二维特征 (收入 x₁, 年龄 x₂) 投影到 θ 角的直线上，得到一维表示 r = x₁·cosθ + x₂·sinθ。数据是我编的：收入既影响谁用药，也影响结果；年龄只影响结果。两个头在这条直线上各拟合一条直线。所有数字都由页面里的代码现场计算。</p>
+
+<figure class="fig">
+  <div class="sliderrow"><label for="theta">方向 θ</label><input id="theta" type="range" min="0" max="180" step="1" value="30"><output id="theta-out" for="theta">30°</output></div>
+  <div class="sliderrow"><label for="alpha">IPM 权重 α</label><input id="alpha" type="range" min="0" max="3" step="0.05" value="1"><output id="alpha-out" for="alpha">1.00</output></div>
+  <div class="controls" style="margin:6px 0 2px">
+    <label><input id="normalize" type="checkbox" checked> 归一化 Φ（固定尺度 s = 1）</label>
+    <span class="muted" style="font-size:14px">预设：</span>
+    <button class="btn" id="pre0" type="button">α = 0 (TARNet)</button>
+    <button class="btn" id="pre1" type="button">α = 1</button>
+    <button class="btn" id="pre3" type="button">α = 3</button>
+  </div>
+  <div class="sliderrow" id="srow"><label for="scale">尺度 s</label><input id="scale" type="range" min="0.05" max="1" step="0.01" value="1" disabled><output id="scale-out" for="scale">1.00</output></div>
+
+  <div class="grid2" style="margin-top:12px">
+    <div><div class="kicker">原始特征与投影方向</div><svg id="scatter" viewBox="0 0 340 300" role="img" aria-label="收入与年龄的散点图，颜色表示处理组，直线表示当前投影方向"></svg></div>
+    <div><div class="kicker">投影后两组的分布（表示空间）</div><svg id="hist" viewBox="0 0 340 300" role="img" aria-label="投影后处理组与对照组的分布直方图"></svg></div>
+  </div>
+  <div class="legend"><span><i style="background:var(--treat)"></i>处理组 t=1</span><span><i style="background:var(--ctrl)"></i>对照组 t=0</span></div>
+
+  <div class="kicker" style="margin-top:14px">目标函数随方向 θ 的变化</div>
+  <div class="scroll"><svg id="curves" viewBox="0 0 640 270" width="640" style="min-width:540px" role="img" aria-label="加权预测损失、α 乘 IPM 以及两者之和随 θ 变化的曲线"></svg></div>
+  <div class="readout">
+    <div>加权预测损失<b id="r-pred">–</b></div>
+    <div>IPM（Wasserstein-1）× s<b id="r-ipm">–</b></div>
+    <div>总目标 = 损失 + α·IPM<b id="r-tot">–</b></div>
+  </div>
+  <p class="live" id="demolive" aria-live="polite"></p>
+  <figcaption>怎么读：把 α 从 0 拖到 3，绿色曲线（总目标）的最低点从预测最优的方向，逐渐向"两组最重叠"的方向（θ = 90°，只看年龄）移动。这正是 α 的含义：愿意为了两组更像，牺牲多少预测精度。取消"归一化"，再把 α 调大，再把尺度 s 往下拖：IPM 会白白变小，预测损失一点不变。</figcaption>
+</figure>
+
+<div class="callout"><b>这个演示不能说明什么：</b>它只展示目标函数里两股力量的形状，没有展示 ITE 误差会变好或变差。这里的表示是一维线性的，丢掉收入还会引入偏差；论文里的收益来自有表达力的非线性网络和有限样本下的外推误差，这个小演示体现不出来。</div>
+<div class="callout ok"><b>为什么必须归一化 Φ：</b>理论里缩小 Φ 会让 B<sub>Φ</sub> 变大，所以"缩小来作弊"不划算。算法把 B<sub>Φ</sub> 并入 α 之后，这个约束消失了，IPM 随 Φ 的尺度成比例缩小而预测损失不变，所以必须靠投影或固定尺度的 batch-norm 把尺度钉住。</div>
+</section>
+
+<!-- ============ 3. TRAINING ============ -->
+<section id="train">
+<h2>③ 训练过程 <span class="tag paper">Algorithm 1</span></h2>
+<p>每次迭代做同样的八件事。点"下一步"，看哪些部分被点亮、在算什么。W 是表示网络的参数，V 是两个头的参数。</p>
+
+<figure class="fig">
+  <div class="controls">
+    <button class="btn" id="prev" type="button">上一步</button>
+    <button class="btn primary" id="next" type="button">下一步</button>
+    <span class="muted" id="stepno" style="font-size:14px"></span>
+  </div>
+  <div class="scroll">
+  <svg id="flow" viewBox="0 0 760 370" width="760" style="min-width:680px" role="img" aria-label="Algorithm 1 的数据流：小批量样本经 Φ 得到表示，一路送入 IPM，一路送入对应的头计算加权损失，梯度合并后更新参数">
+    <defs><marker id="ah3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" class="fillfg"/></marker></defs>
+    <g data-steps="1"><rect class="box" x="8" y="150" width="140" height="64" rx="8"/><text x="78" y="177" text-anchor="middle" font-size="13">小批量 m 个样本</text><text x="78" y="196" text-anchor="middle" font-size="11" class="mut">(xᵢ, tᵢ, yᵢ)，权重 wᵢ</text></g>
+    <g data-steps="2"><line class="arrow" x1="148" y1="182" x2="184" y2="182" marker-end="url(#ah3)"/><rect class="box rep" x="188" y="150" width="86" height="64" rx="8"/><text x="231" y="177" text-anchor="middle" font-size="14">Φ_W</text><text x="231" y="196" text-anchor="middle" font-size="11" class="mut">前向</text></g>
+    <g data-steps="2 3"><line class="arrow" x1="274" y1="182" x2="308" y2="182" marker-end="url(#ah3)"/><rect class="box rep" x="312" y="150" width="104" height="64" rx="8"/><text x="364" y="177" text-anchor="middle" font-size="14">r = Φ(x)</text><text x="364" y="196" text-anchor="middle" font-size="11" class="mut">表示</text></g>
+    <g data-steps="3 4"><polyline class="arrow" points="416,170 440,170 440,62 466,62" marker-end="url(#ah3)"/><polyline class="arrow" points="440,150 440,112 466,112" marker-end="url(#ah3)"/>
+      <rect class="box t0" x="470" y="40" width="104" height="44" rx="8"/><text x="522" y="67" text-anchor="middle" font-size="13">r | t=0（对照）</text>
+      <rect class="box t1" x="470" y="92" width="104" height="44" rx="8"/><text x="522" y="119" text-anchor="middle" font-size="13">r | t=1（处理）</text></g>
+    <g data-steps="4"><line class="arrow" x1="574" y1="62" x2="612" y2="82" marker-end="url(#ah3)"/><line class="arrow" x1="574" y1="114" x2="612" y2="94" marker-end="url(#ah3)"/>
+      <rect class="box ipm" x="616" y="56" width="136" height="64" rx="8"/><text x="684" y="82" text-anchor="middle" font-size="13" style="fill:var(--ipm)">IPM</text><text x="684" y="102" text-anchor="middle" font-size="11" class="mut">Wass 或 MMD → g₁</text></g>
+    <g data-steps="5"><polyline class="arrow" points="416,196 440,196 440,262 466,262" marker-end="url(#ah3)"/><polyline class="arrow" points="440,230 466,230" marker-end="url(#ah3)"/>
+      <rect class="box t1" x="470" y="208" width="104" height="40" rx="8"/><text x="522" y="233" text-anchor="middle" font-size="12">h₁（t=1 样本）</text>
+      <rect class="box t0" x="470" y="254" width="104" height="40" rx="8"/><text x="522" y="279" text-anchor="middle" font-size="12">h₀（t=0 样本）</text></g>
+    <g data-steps="5 6"><line class="arrow" x1="574" y1="228" x2="612" y2="246" marker-end="url(#ah3)"/><line class="arrow" x1="574" y1="274" x2="612" y2="256" marker-end="url(#ah3)"/>
+      <rect class="box" x="616" y="222" width="136" height="64" rx="8"/><text x="684" y="248" text-anchor="middle" font-size="13">wᵢ·L(ŷᵢ, yᵢ)</text><text x="684" y="268" text-anchor="middle" font-size="11" class="mut">g₂ 到 V · g₃ 到 W</text></g>
+    <g data-steps="7 8"><polyline class="arrow dash" points="752,88 756,88 756,336 392,336" marker-end="url(#ah3)"/><line class="arrow dash" x1="752" y1="254" x2="756" y2="254"/>
+      <rect class="box" x="130" y="312" width="260" height="48" rx="8"/><text x="260" y="334" text-anchor="middle" font-size="13">更新参数</text><text x="260" y="351" text-anchor="middle" font-size="11" class="mut">W ← W − η(α·g₁ + g₃)　V ← V − η(g₂ + 2λV)</text></g>
+  </svg>
+  </div>
+  <p class="live" id="steptext" aria-live="polite"></p>
+  <figcaption>点亮的部分是当前步骤在做的事。虚线表示梯度回传并汇合到参数更新。</figcaption>
+</figure>
+
+<h3>梯度怎么分配 <span class="tag paper">Algorithm 1 第 6-9 行</span></h3>
+<div class="scroll"><table>
+  <thead><tr><th>参数</th><th>来自哪些项的梯度</th><th>更新式</th></tr></thead>
+  <tbody>
+    <tr><td><span class="rep">W</span>（表示网络 Φ）</td><td>IPM 项 g₁，加权损失项 g₃</td><td>W ← W − η(α·g₁ + g₃)</td></tr>
+    <tr><td>V（两个头）</td><td>加权损失项 g₂，加上权重衰减</td><td>V ← V − η(g₂ + 2λV)</td></tr>
+  </tbody>
+</table></div>
+<p>所以 Φ 同时受两股力牵引：预测损失让它保留与结果有关的信息，IPM 让两组的表示靠近。头 V 只受预测损失和权重衰减影响。论文用 Adam 作为优化器，层宽、层数等实现设置见 Sec 5，IPM 梯度的具体算法与超参数选择流程在补充材料中，这份 PDF 里没有。</p>
+</section>
+
+<footer>
+  <p><b>来源说明。</b>标记"论文"的内容来自 Shalit et al. (ICML 2017) 的 Sec 3-4 与 Fig 1、Eq. 3、Algorithm 1。标记"自编演示"的数据与曲线是为了讲解而构造的，不是论文的实验结果。步骤 1-8 的划分是对 Algorithm 1 的讲解性拆分。</p>
+  <p>配套笔记见仓库 <code>notes/05_algorithm.md</code>，理论推导见 <code>notes/04_bounds.md</code>。</p>
+</footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  var NS = "http://www.w3.org/2000/svg";
+
+  /* ---------- 1. network toggle ---------- */
+  var cur = 1;
+  function setT(t) {
+    cur = t;
+    $("btn-t1").setAttribute("aria-pressed", t === 1 ? "true" : "false");
+    $("btn-t0").setAttribute("aria-pressed", t === 0 ? "true" : "false");
+    $("path1").classList.toggle("dim", t !== 1);
+    $("path0").classList.toggle("dim", t !== 0);
+    $("netlive").innerHTML = t === 1
+      ? "这个样本用了新药，我们只观测到 Y₁。数据流经 Φ 与 <span class='t1'>h₁</span>，梯度更新 Φ 和 h₁；<span class='t0'>h₀</span> 这一路没有观测结果，不参与这个样本的更新。IPM 项仍然作用在它的 Φ(x) 上。"
+      : "这个样本用了旧药，我们只观测到 Y₀。数据流经 Φ 与 <span class='t0'>h₀</span>，梯度更新 Φ 和 h₀；<span class='t1'>h₁</span> 这一路没有观测结果，不参与这个样本的更新。IPM 项仍然作用在它的 Φ(x) 上。";
+  }
+  $("btn-t1").addEventListener("click", function () { setT(1); });
+  $("btn-t0").addEventListener("click", function () { setT(0); });
+  setT(1);
+
+  /* ---------- 2a. weight calculator ---------- */
+  function drawWeights() {
+    var u = parseFloat($("u-range").value), n = 1000;
+    $("u-out").textContent = u.toFixed(2);
+    var w1 = 1 / (2 * u), w0 = 1 / (2 * (1 - u));
+    var raw1 = n * u, raw0 = n * (1 - u), W = 400, X0 = 130;
+    function bar(y, label, val, color, txt) {
+      return '<text x="8" y="' + (y + 16) + '" font-size="13">' + label + '</text>' +
+        '<rect x="' + X0 + '" y="' + y + '" width="' + (val / n * W) + '" height="24" rx="4" style="fill:' + color + '"/>' +
+        '<text x="' + (X0 + val / n * W + 8) + '" y="' + (y + 17) + '" font-size="12" class="mut">' + txt + '</text>';
+    }
+    $("wsvg").innerHTML =
+      '<text x="8" y="16" font-size="13" class="mut">不加权：每人权重 1</text>' +
+      bar(24, "处理组 t=1", raw1, "var(--treat)", "总权重 " + raw1.toFixed(0)) +
+      bar(56, "对照组 t=0", raw0, "var(--ctrl)", "总权重 " + raw0.toFixed(0)) +
+      '<text x="8" y="112" font-size="13" class="mut">加权后：每人权重 wᵢ</text>' +
+      bar(120, "处理组 t=1", n / 2, "var(--treat)", "总权重 500，每人 " + w1.toFixed(2)) +
+      bar(152, "对照组 t=0", n / 2, "var(--ctrl)", "总权重 500，每人 " + w0.toFixed(2));
+    $("wlive").innerHTML = "u = " + u.toFixed(2) + "：处理组每人权重 1/(2u) = <b>" + w1.toFixed(2) + "</b>，对照组每人 1/(2(1−u)) = <b>" + w0.toFixed(2) + "</b>。人少的那组，每个人说话更响。";
+  }
+  $("u-range").addEventListener("input", drawWeights);
+  drawWeights();
+
+  /* ---------- 2b. toy representation demo ---------- */
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  var rng = mulberry32(7);
+  function randn() { var u = 0, v = 0; while (u === 0) u = rng(); while (v === 0) v = rng(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }
+  var N = 300, D = [];
+  for (var i = 0; i < N; i++) {
+    var x1 = randn(), x2 = randn(), p = 1 / (1 + Math.exp(-(1.6 * x1 - 0.8))), t = rng() < p ? 1 : 0, e = 0.3 * randn();
+    D.push({ x1: x1, x2: x2, t: t, y: t ? 0.6 * x1 + 1.5 * x2 + 1 + e : 0.6 * x1 + 1.0 * x2 + e });
+  }
+  var n1 = D.filter(function (d) { return d.t === 1; }).length, n0 = N - n1, u = n1 / N;
+  var wT = 1 / (2 * u), wC = 1 / (2 * (1 - u));
+
+  function ols(rs, ys) {
+    var n = rs.length, mr = 0, my = 0, k;
+    for (k = 0; k < n; k++) { mr += rs[k]; my += ys[k]; }
+    mr /= n; my /= n;
+    var sxx = 0, sxy = 0;
+    for (k = 0; k < n; k++) { sxx += (rs[k] - mr) * (rs[k] - mr); sxy += (rs[k] - mr) * (ys[k] - my); }
+    var b = sxx > 1e-9 ? sxy / sxx : 0, a = my - b * mr, sse = 0;
+    for (k = 0; k < n; k++) { var r = ys[k] - a - b * rs[k]; sse += r * r; }
+    return sse / n;
+  }
+  function w1dist(a, b) {
+    a = a.slice().sort(function (p, q) { return p - q; }); b = b.slice().sort(function (p, q) { return p - q; });
+    var i = 0, j = 0, Fa = 0, Fb = 0, prev = Math.min(a[0], b[0]), sum = 0, na = a.length, nb = b.length;
+    while (i < na || j < nb) {
+      var useA = j >= nb || (i < na && a[i] <= b[j]), x = useA ? a[i] : b[j];
+      sum += Math.abs(Fa - Fb) * (x - prev); prev = x;
+      if (useA) { Fa += 1 / na; i++; } else { Fb += 1 / nb; j++; }
+    }
+    return sum;
+  }
+  function evalTheta(deg) {
+    var th = deg * Math.PI / 180, c = Math.cos(th), s = Math.sin(th);
+    var r1 = [], y1 = [], r0 = [], y0 = [];
+    D.forEach(function (d) { var r = c * d.x1 + s * d.x2; if (d.t) { r1.push(r); y1.push(d.y); } else { r0.push(r); y0.push(d.y); } });
+    var m1 = ols(r1, y1), m0 = ols(r0, y0);
+    // (1/n) sum w_i * residual^2 = (wT*n1*m1 + wC*n0*m0)/N = (m1 + m0)/2
+    var pred = (wT * n1 * m1 + wC * n0 * m0) / N;
+    return { pred: pred, ipm: w1dist(r1, r0), r1: r1, r0: r0 };
+  }
+  var PRED = [], IPMV = [];
+  for (var g = 0; g <= 180; g++) { var ev = evalTheta(g); PRED.push(ev.pred); IPMV.push(ev.ipm); }
+
+  var RMAX = 3.5;
+  function mk(tag, attrs) { var el = document.createElementNS(NS, tag); for (var k in attrs) el.setAttribute(k, attrs[k]); return el; }
+
+  function drawScatter(deg) {
+    var W = 340, H = 300, P = 30, sx = function (v) { return P + (v + RMAX) / (2 * RMAX) * (W - 2 * P); }, sy = function (v) { return H - P - (v + RMAX) / (2 * RMAX) * (H - 2 * P); };
+    var h = '<rect x="' + P + '" y="' + P + '" width="' + (W - 2 * P) + '" height="' + (H - 2 * P) + '" fill="none" style="stroke:var(--line)"/>';
+    h += '<line x1="' + sx(0) + '" y1="' + P + '" x2="' + sx(0) + '" y2="' + (H - P) + '" style="stroke:var(--line)"/><line x1="' + P + '" y1="' + sy(0) + '" x2="' + (W - P) + '" y2="' + sy(0) + '" style="stroke:var(--line)"/>';
+    D.forEach(function (d) { h += '<circle cx="' + sx(d.x1).toFixed(1) + '" cy="' + sy(d.x2).toFixed(1) + '" r="2.6" style="fill:' + (d.t ? 'var(--treat)' : 'var(--ctrl)') + ';fill-opacity:.62"/>'; });
+    var th = deg * Math.PI / 180, c = Math.cos(th), s = Math.sin(th), L = RMAX * 1.02;
+    h += '<line x1="' + sx(-L * c) + '" y1="' + sy(-L * s) + '" x2="' + sx(L * c) + '" y2="' + sy(L * s) + '" style="stroke:var(--rep);stroke-width:3"/>';
+    h += '<text x="' + (W / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="12" class="mut">收入 x₁（影响用药与结果）</text>';
+    h += '<text x="12" y="' + (H / 2) + '" font-size="12" class="mut" transform="rotate(-90 12 ' + (H / 2) + ')" text-anchor="middle">年龄 x₂（只影响结果）</text>';
+    h += '<text x="' + (W - P - 4) + '" y="' + (P + 14) + '" text-anchor="end" font-size="12" style="fill:var(--rep)">Φ 的方向 θ = ' + deg + '°</text>';
+    $("scatter").innerHTML = h;
+  }
+  function drawHist(ev, s) {
+    var W = 340, H = 300, P = 30, B = 28, lo = -RMAX, hi = RMAX, bw = (hi - lo) / B;
+    function dens(arr) { var c = new Array(B).fill(0); arr.forEach(function (r) { var v = r * s, k = Math.floor((v - lo) / bw); if (k < 0) k = 0; if (k >= B) k = B - 1; c[k]++; }); return c.map(function (v) { return v / arr.length / bw; }); }
+    var d1 = dens(ev.r1), d0 = dens(ev.r0), ymax = 1.6;
+    var sx = function (v) { return P + (v - lo) / (hi - lo) * (W - 2 * P); }, sy = function (v) { return H - P - Math.min(v, ymax) / ymax * (H - 2 * P); };
+    function path(d, color) { var p = 'M' + sx(lo) + ',' + sy(0); for (var k = 0; k < B; k++) { p += ' L' + sx(lo + k * bw) + ',' + sy(d[k]) + ' L' + sx(lo + (k + 1) * bw) + ',' + sy(d[k]); } p += ' L' + sx(hi) + ',' + sy(0) + ' Z'; return '<path d="' + p + '" style="fill:' + color + ';fill-opacity:.38;stroke:' + color + ';stroke-width:1.6"/>'; }
+    var h = '<line x1="' + P + '" y1="' + sy(0) + '" x2="' + (W - P) + '" y2="' + sy(0) + '" style="stroke:var(--line)"/>' + path(d0, 'var(--ctrl)') + path(d1, 'var(--treat)');
+    h += '<text x="' + (W / 2) + '" y="' + (H - 8) + '" text-anchor="middle" font-size="12" class="mut">表示 Φ(x)（已乘尺度 s）</text>';
+    h += '<text x="' + (W - P - 4) + '" y="' + (P + 4) + '" text-anchor="end" font-size="12" style="fill:var(--ipm)">重叠越多，IPM 越小</text>';
+    $("hist").innerHTML = h;
+  }
+  function niceMax(v) { var steps = [0.5, 1, 1.5, 2, 3, 4, 5, 6, 8]; for (var i = 0; i < steps.length; i++) if (v <= steps[i]) return steps[i]; return Math.ceil(v); }
+  function drawCurves(deg, alpha, s) {
+    var W = 640, H = 270, L = 48, R = 16, T = 14, Bm = 44, tot = [], k, ymax = 0;
+    for (k = 0; k <= 180; k++) { tot.push(PRED[k] + alpha * s * IPMV[k]); ymax = Math.max(ymax, tot[k], PRED[k]); }
+    ymax = niceMax(ymax * 1.05);
+    var sx = function (v) { return L + v / 180 * (W - L - R); }, sy = function (v) { return H - Bm - v / ymax * (H - Bm - T); };
+    function pth(arr, f) { var p = ''; for (var k = 0; k <= 180; k++) p += (k ? ' L' : 'M') + sx(k).toFixed(1) + ',' + sy(f ? f(arr[k], k) : arr[k]).toFixed(1); return p; }
+    var h = '', ticks = [0, 30, 60, 90, 120, 150, 180];
+    var ystep = ymax <= 2 ? 0.5 : (ymax <= 4 ? 1 : 2);
+    for (var yv = 0; yv <= ymax + 1e-9; yv += ystep) h += '<line x1="' + L + '" y1="' + sy(yv) + '" x2="' + (W - R) + '" y2="' + sy(yv) + '" style="stroke:var(--line)"/><text x="' + (L - 6) + '" y="' + (sy(yv) + 4) + '" text-anchor="end" font-size="11" class="mut">' + yv.toFixed(ystep < 1 ? 1 : 0) + '</text>';
+    ticks.forEach(function (tv) { h += '<line x1="' + sx(tv) + '" y1="' + (H - Bm) + '" x2="' + sx(tv) + '" y2="' + (H - Bm + 4) + '" style="stroke:var(--muted)"/><text x="' + sx(tv) + '" y="' + (H - Bm + 18) + '" text-anchor="middle" font-size="11" class="mut">' + tv + '°</text>'; });
+    h += '<text x="' + ((L + W - R) / 2) + '" y="' + (H - 6) + '" text-anchor="middle" font-size="12" class="mut">方向 θ（0° 只看收入，90° 只看年龄）</text>';
+    h += '<path d="' + pth(PRED) + '" fill="none" style="stroke:var(--fg);stroke-width:2"/>';
+    h += '<path d="' + pth(IPMV, function (v) { return alpha * s * v; }) + '" fill="none" style="stroke:var(--ipm);stroke-width:2;stroke-dasharray:6 4"/>';
+    h += '<path d="' + pth(tot) + '" fill="none" style="stroke:var(--rep);stroke-width:3.4"/>';
+    var best = 0; for (k = 1; k <= 180; k++) if (tot[k] < tot[best]) best = k;
+    h += '<line x1="' + sx(deg) + '" y1="' + T + '" x2="' + sx(deg) + '" y2="' + (H - Bm) + '" style="stroke:var(--fg);stroke-dasharray:3 3"/>';
+    h += '<circle cx="' + sx(best) + '" cy="' + sy(tot[best]) + '" r="6" style="fill:var(--rep);stroke:var(--surface);stroke-width:2"/>';
+    h += '<text x="' + Math.min(W - R - 4, Math.max(L + 4, sx(best))) + '" y="' + (sy(tot[best]) - 12) + '" text-anchor="' + (best > 130 ? 'end' : 'start') + '" font-size="12" style="fill:var(--rep)">最优 θ* = ' + best + '°</text>';
+    h += '<g font-size="12"><line x1="' + (L + 8) + '" y1="' + (T + 8) + '" x2="' + (L + 30) + '" y2="' + (T + 8) + '" style="stroke:var(--fg);stroke-width:2"/><text x="' + (L + 36) + '" y="' + (T + 12) + '">加权预测损失</text>' +
+      '<line x1="' + (L + 140) + '" y1="' + (T + 8) + '" x2="' + (L + 162) + '" y2="' + (T + 8) + '" style="stroke:var(--ipm);stroke-width:2;stroke-dasharray:6 4"/><text x="' + (L + 168) + '" y="' + (T + 12) + '">α · s · IPM</text>' +
+      '<line x1="' + (L + 262) + '" y1="' + (T + 8) + '" x2="' + (L + 284) + '" y2="' + (T + 8) + '" style="stroke:var(--rep);stroke-width:3.4"/><text x="' + (L + 290) + '" y="' + (T + 12) + '">总目标</text></g>';
+    $("curves").innerHTML = h;
+    return { best: best, tot: tot };
+  }
+  function updateDemo() {
+    var deg = parseInt($("theta").value, 10), alpha = parseFloat($("alpha").value), norm = $("normalize").checked;
+    var s = norm ? 1 : parseFloat($("scale").value);
+    $("scale").disabled = norm; if (norm) { $("scale").value = 1; }
+    $("theta-out").textContent = deg + "°"; $("alpha-out").textContent = alpha.toFixed(2); $("scale-out").textContent = s.toFixed(2);
+    var ev = evalTheta(deg);
+    drawScatter(deg); drawHist(ev, s);
+    var res = drawCurves(deg, alpha, s);
+    $("r-pred").textContent = ev.pred.toFixed(3); $("r-ipm").textContent = (ev.ipm * s).toFixed(3); $("r-tot").textContent = (ev.pred + alpha * s * ev.ipm).toFixed(3);
+    var msg;
+    if (!norm && s < 0.6 && alpha > 0) msg = "没有归一化：把 Φ 整体缩小到 s = " + s.toFixed(2) + "，IPM 跟着缩小，预测损失不变（每个头自己拟合斜率，不在乎尺度）。总目标下降，但模型什么也没学到，纯属作弊。";
+    else if (alpha === 0) msg = "α = 0（TARNet）：只最小化预测损失，最优方向在 θ* = " + res.best + "°，此时两组分布仍有明显差异。";
+    else msg = "α = " + alpha.toFixed(2) + "：总目标的最优方向是 θ* = " + res.best + "°。α 越大，最优方向越靠近 90°，两组越重叠，但预测损失也越高。";
+    $("demolive").textContent = msg;
+  }
+  ["theta", "alpha", "scale"].forEach(function (id) { $(id).addEventListener("input", updateDemo); });
+  $("normalize").addEventListener("change", updateDemo);
+  [["pre0", 0], ["pre1", 1], ["pre3", 3]].forEach(function (p) { $(p[0]).addEventListener("click", function () { $("alpha").value = p[1]; updateDemo(); }); });
+  updateDemo();
+
+  /* ---------- 3. stepper ---------- */
+  var STEPS = [
+    "<b>1 抽小批量。</b>从训练集随机抽 m 个样本。算法开头已经算好 u（处理组比例）和每个样本的权重 wᵢ。",
+    "<b>2 前向通过 Φ。</b>每个样本的特征 xᵢ 经过共享表示网络，得到表示 rᵢ = Φ_W(xᵢ)，并做归一化。",
+    "<b>3 按处理分堆。</b>把批量里的表示按 tᵢ 分成两堆：对照组 r | t=0 和处理组 r | t=1。批量里需要两种样本都有（我的观察，论文没有展开）。",
+    "<b>4 算 IPM。</b>计算两堆表示之间的距离（Wasserstein 或 MMD），对 W 求梯度得到 g₁。它只作用于表示网络。",
+    "<b>5 走对应的头。</b>t=1 的样本走 h₁，t=0 的样本走 h₀，得到各自的预测 ŷᵢ。每个样本只走自己观测到的那条路。",
+    "<b>6 算加权损失。</b>(1/m) Σ wᵢ·L(ŷᵢ, yᵢ)，对头的参数 V 求梯度 g₂，对 Φ 的参数 W 求梯度 g₃。",
+    "<b>7 合并梯度并更新。</b>W ← W − η(α·g₁ + g₃)；V ← V − η(g₂ + 2λV)。η 由 Adam 等标准方法给出，2λV 来自对头参数的 ℓ₂ 衰减。",
+    "<b>8 重复。</b>回到第 1 步，直到收敛。超参数（α、λ、层宽等）怎么在验证集上选，论文放在补充材料 C.1，这份 PDF 里没有。"
+  ];
+  var step = 1, groups = document.querySelectorAll("#flow [data-steps]");
+  function showStep() {
+    groups.forEach(function (g) {
+      var on = g.getAttribute("data-steps").split(" ").indexOf(String(step)) >= 0;
+      g.classList.toggle("step-on", on); g.classList.toggle("step-off", !on);
+    });
+    $("steptext").innerHTML = STEPS[step - 1];
+    $("stepno").textContent = "第 " + step + " / " + STEPS.length + " 步";
+    $("prev").disabled = step === 1; $("next").disabled = step === STEPS.length;
+  }
+  $("prev").addEventListener("click", function () { if (step > 1) { step--; showStep(); } });
+  $("next").addEventListener("click", function () { if (step < STEPS.length) { step++; showStep(); } });
+  showStep();
+})();
+</script>
+</body>
+</html>
