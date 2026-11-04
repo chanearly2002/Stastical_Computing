@@ -12,7 +12,7 @@
 Estimating individual treatment effect ：generalization bounds and algorithms.pdf   # 原文（文件名含全角冒号 "："，引用时务必加引号）
 notes/paper_fulltext.txt     # pdftotext -layout 提取的全文，供检索（公式为纯文本，不完全可靠，以 PDF 为准）
 notes/                       # 讲解笔记，按章节编号：01_problem.md, 02_theory.md ...
-docs/                        # 交互式 HTML 讲解页（自包含单文件），如 docs/algorithm.html
+docs/                        # 交互式 HTML 讲解页（自包含单文件）：index / theory / algorithm / experiments
 src/                         # 复现代码（见下）
 figures/                     # 生成的图（推导可视化、实验复现图）
 .claude/skills/              # 项目级 skills（见下）
@@ -62,7 +62,7 @@ pip install torch scipy matplotlib numpy
 
 ## 进度
 
-Sec 1-5 已讲解并有笔记（notes/00-06）、算法交互页（docs/algorithm.html）与实验交互页（docs/experiments.html）；Sec 6 与复现尚未开始。
+Sec 1-5 已讲解并有笔记（notes/00-06）；HTML 图解已有 docs/theory.html（Sec 1-3）、docs/algorithm.html（Sec 4）、docs/experiments.html（Sec 5）。Sec 6 与复现尚未开始。HTML 页面里论文的公式和变量必须写全并列变量表（见 html-explainer skill）。
 
 ## Git
 
