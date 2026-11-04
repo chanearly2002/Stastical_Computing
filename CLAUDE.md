@@ -12,6 +12,7 @@
 Estimating individual treatment effect ：generalization bounds and algorithms.pdf   # 原文（文件名含全角冒号 "："，引用时务必加引号）
 notes/paper_fulltext.txt     # pdftotext -layout 提取的全文，供检索（公式为纯文本，不完全可靠，以 PDF 为准）
 notes/                       # 讲解笔记，按章节编号：01_problem.md, 02_theory.md ...
+docs/                        # 交互式 HTML 讲解页（自包含单文件），如 docs/algorithm.html
 src/                         # 复现代码（见下）
 figures/                     # 生成的图（推导可视化、实验复现图）
 .claude/skills/              # 项目级 skills（见下）
@@ -46,8 +47,9 @@ figures/                     # 生成的图（推导可视化、实验复现图�
 - `paper-walkthrough`：按固定节奏逐章讲解论文。
 - `derive-formula`：对公式逐步推导，并用代码数值验证 / 画图。
 - `paper-mindmap`：生成论文结构脑图（Mermaid）和概念依赖图。
+- `html-explainer`：生成交互式 HTML 讲解页（SVG 图、滑块演示、分步动画），存到 `docs/`。
 
-用户说"讲解第 X 节""推导 Theorem 1""画脑图"时，调用对应 skill。
+用户说"讲解第 X 节""推导 Theorem 1""画脑图""生成 html / 图解"时，调用对应 skill。
 
 ## 常用命令
 
@@ -57,6 +59,10 @@ pdftotext -layout "Estimating individual treatment effect ：generalization boun
 # 安装依赖
 pip install torch scipy matplotlib numpy
 ```
+
+## 进度
+
+Sec 1-4 已讲解并有笔记（notes/00-05）与算法交互页（docs/algorithm.html）；Sec 5-6 与复现尚未开始。
 
 ## Git
 
