@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>理论部分图解</title>
+<style>
+/* Layout: one reading column; every formula sits in a "formula card" with its variables listed.
+   Colors encode roles: treated = warm, control = cool, representation = teal, IPM = rose. */
+:root {
+  --bg: #F4F6F8; --surface: #FFFFFF; --fg: #14202B; --muted: #566573; --line: #D6DCE3; --soft: #EBEFF3;
+  --treat: #C2500F; --ctrl: #1B6BB3; --rep: #0B857E; --ipm: #B0214D; --best: #DDF1EE; --thm: #E6F3F1;
+  --font-body: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-math: "Cambria Math", "STIX Two Math", "Latin Modern Math", "Times New Roman", "Noto Serif", serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E151C; --surface: #16202A; --fg: #E5ECF3; --muted: #9AA9B8; --line: #2B3844; --soft: #1D2A36;
+    --treat: #FF9060; --ctrl: #64B1F2; --rep: #3FD0C6; --ipm: #FF6C98; --best: #15403C; --thm: #12302E;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E151C; --surface: #16202A; --fg: #E5ECF3; --muted: #9AA9B8; --line: #2B3844; --soft: #1D2A36;
+  --treat: #FF9060; --ctrl: #64B1F2; --rep: #3FD0C6; --ipm: #FF6C98; --best: #15403C; --thm: #12302E;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.75;
+  padding-block: 0 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 920px; margin: 0 auto; }
+header.top { padding: 40px 0 8px; }
+.kicker { font-size: 13px; letter-spacing: .06em; color: var(--muted); }
+h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.2; margin: 6px 0 14px; text-wrap: balance; }
+h2 { font-size: clamp(22px, 3.4vw, 28px); line-height: 1.3; margin: 56px 0 10px; text-wrap: balance; scroll-margin-top: 12px; }
+h3 { font-size: 18px; margin: 30px 0 6px; }
+p { margin: 10px 0; max-width: 68ch; }
+.lead { font-size: 18px; max-width: 62ch; }
+.muted { color: var(--muted); }
+code, .mono { font-family: var(--font-mono); font-size: .92em; }
+sub, sup { line-height: 0; }
+.m { font-family: var(--font-math); font-size: 1.06em; font-style: normal; white-space: nowrap; }
+.sp { font-family: var(--font-math); font-weight: 700; }
+.ss { display: inline-flex; flex-direction: column; vertical-align: middle; font-size: .68em; line-height: 1.15; margin-left: 1px; }
+.ss > span { display: block; }
+.frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; line-height: 1.2; margin: 0 2px; }
+.frac > span:first-child { border-bottom: 1px solid currentColor; padding: 0 3px; }
+.frac > span:last-child { padding: 0 3px; }
+.t1 { color: var(--treat); font-weight: 600; }
+.t0 { color: var(--ctrl); font-weight: 600; }
+.rep { color: var(--rep); font-weight: 600; }
+.ipm { color: var(--ipm); font-weight: 600; }
+.tag { display: inline-block; font-size: 12px; line-height: 1; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); vertical-align: middle; margin-left: 6px; font-weight: 500; }
+.tag.paper { color: var(--rep); border-color: var(--rep); }
+.tag.mine { color: var(--ipm); border-color: var(--ipm); }
+.toc { display: flex; flex-wrap: wrap; gap: 8px 10px; margin: 18px 0 0; padding: 0; list-style: none; }
+.toc a { display: inline-block; padding: 7px 14px; border: 1px solid var(--line); border-radius: 999px; color: var(--fg); text-decoration: none; background: var(--surface); font-size: 14px; }
+.toc a:hover { border-color: var(--rep); }
+a { color: var(--ctrl); }
+a:focus-visible, button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--rep); outline-offset: 2px; }
+figure.fig { margin: 18px 0; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+figure.fig figcaption { font-size: 14px; color: var(--muted); margin-top: 10px; max-width: 74ch; }
+.scroll { overflow-x: auto; max-width: 100%; }
+svg { display: block; max-width: 100%; height: auto; }
+svg text { font-family: var(--font-body); fill: var(--fg); }
+svg .mut { fill: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin: 4px 0 12px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg button, .btn { font: inherit; font-size: 14px; padding: 8px 14px; border: 0; background: var(--surface); color: var(--fg); cursor: pointer; min-height: 40px; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--fg); color: var(--bg); }
+.btn { border: 1px solid var(--line); border-radius: 8px; }
+.live { background: var(--soft); border-radius: 8px; padding: 10px 14px; font-size: 15px; margin-top: 8px; max-width: none; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 720px) { .grid2, .grid3 { grid-template-columns: minmax(0, 1fr); } }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; min-width: 0; }
+.card h4 { margin: 0 0 4px; font-size: 16px; }
+.card p, .card li { font-size: 15px; }
+.card p { margin: 6px 0; }
+.card ul { margin: 6px 0; padding-left: 18px; }
+/* formula card */
+.fcard { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin: 16px 0; overflow: hidden; }
+.fcard.thm { border: 2px solid var(--rep); }
+.fhead { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; padding: 10px 16px; background: var(--soft); border-bottom: 1px solid var(--line); }
+.fcard.thm .fhead { background: var(--thm); }
+.fname { font-weight: 700; font-size: 16px; }
+.floc { font-size: 13px; color: var(--muted); }
+.fbody { padding: 10px 16px 14px; }
+.fbody > p { font-size: 15px; margin: 6px 0; max-width: none; }
+.eq { font-family: var(--font-math); font-size: 18px; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; margin: 10px 0; overflow-x: auto; max-width: 100%; line-height: 1.9; }
+.eq .row { white-space: nowrap; }
+.eq .row + .row { margin-top: 4px; }
+.eq .tag-eq { float: right; color: var(--muted); font-size: 14px; margin-left: 16px; }
+table.vars { width: 100%; border-collapse: collapse; font-size: 14.5px; margin-top: 6px; }
+table.vars th, table.vars td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+table.vars th { color: var(--muted); font-weight: 600; font-size: 13px; }
+table.vars td:first-child { white-space: nowrap; width: 1%; font-family: var(--font-math); font-size: 16px; }
+details { margin: 8px 0; }
+details > summary { cursor: pointer; font-size: 14.5px; color: var(--rep); font-weight: 600; padding: 4px 0; }
+details.proof { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 16px 10px; margin: 14px 0; }
+details.proof > summary { font-size: 15.5px; }
+blockquote.orig { margin: 6px 0; padding: 8px 14px; border-left: 3px solid var(--line); color: var(--muted); font-size: 14.5px; max-width: none; font-family: var(--font-math); }
+ol.steps { padding-left: 22px; max-width: none; }
+ol.steps li { margin: 8px 0; }
+ol.steps .why { display: block; font-size: 13.5px; color: var(--muted); }
+.sliderrow { display: grid; grid-template-columns: 188px minmax(0, 1fr) 72px; gap: 10px; align-items: center; margin: 6px 0; font-size: 15px; }
+.sliderrow output { font-family: var(--font-mono); text-align: right; }
+input[type="range"] { width: 100%; accent-color: var(--rep); min-height: 28px; }
+@media (max-width: 640px) { .sliderrow { grid-template-columns: minmax(0, 1fr) 64px; } .sliderrow label { grid-column: 1 / -1; } }
+.readout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 10px; }
+.readout div { background: var(--soft); border-radius: 8px; padding: 8px 12px; font-size: 14px; }
+.readout b { display: block; font-family: var(--font-mono); font-size: 18px; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .readout { grid-template-columns: minmax(0, 1fr); } }
+table.data { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+table.data th, table.data td { border-bottom: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: middle; }
+table.data th { color: var(--muted); font-weight: 600; font-size: 13px; }
+table.data td.num, table.data th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ok { color: var(--rep); font-weight: 700; }
+.bad { color: var(--ipm); font-weight: 700; }
+.callout { border-left: 3px solid var(--ipm); background: var(--soft); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; max-width: 74ch; }
+.callout.ok { border-left-color: var(--rep); }
+footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 14px; color: var(--muted); }
+
+@media (max-width: 640px) { .eq .row { white-space: normal; } .eq .tag-eq { float: none; display: block; margin: 0; } .eq { font-size: 16.5px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div class="kicker">Shalit · Johansson · Sontag, ICML 2017 · Sec 1 – Sec 3</div>
+  <h1>理论部分图解</h1>
+  <p class="lead">这一页把论文 Sec 1 到 Sec 3 的内容讲清楚：问题是什么、有哪些假设、符号怎么定义、Lemma 1 与 Theorem 1 到底说了什么。<b>论文里的每个公式和变量都在页面里写全了</b>，每个公式卡片下面有变量表，原文的英文表述折叠在"原文"里，可直接对照。</p>
+  <ul class="toc">
+    <li><a href="#thm1">Theorem 1 速览</a></li>
+    <li><a href="#s1">① 问题与假设 (Sec 1)</a></li>
+    <li><a href="#s2">② 相关工作 (Sec 2)</a></li>
+    <li><a href="#s3">③ 符号与定义 (Sec 3.1)</a></li>
+    <li><a href="#s4">④ Lemma 1 与 Theorem 1 (Sec 3.2)</a></li>
+    <li><a href="#sym">⑤ 符号总表</a></li>
+  </ul>
+  <p class="muted" style="font-size:14px">标签说明：<span class="tag paper">论文</span> 来自原文；<span class="tag mine">自编/我的整理</span> 是为了讲解而写的例子或推导，不是论文内容。论文引用的"补充材料"（完整证明、B<sub>Φ</sub> 的具体常数、Definition A11 等）不在这份 PDF 里，相关推导都标明是"重建"。</p>
+</header>
+<div class="fcard thm" id="thm1"><div class="fhead"><span class="fname">Theorem 1</span><span class="floc">论文 Sec 3.2 · Eq. (2)</span></div><div class="fbody"><p><b>条件：</b>满足 Lemma 1 的条件，并且定义 ℓ 所用的损失 L 是<b>平方损失</b>。<b>结论：</b>个体效应的误差 ε<sub>PEHE</sub> 先被"反事实 + 事实"损失之和控制，再被"两组各自的事实损失 + 两组分布的距离"控制。</p><div class="eq"><div class="row">ε<sub>PEHE</sub>(h, Φ) &nbsp;≤&nbsp; 2 ( ε<sub>CF</sub>(h, Φ) + ε<sub>F</sub>(h, Φ) − 2σ<span class="ss"><span>2</span><span>Y</span></span> ) &nbsp;≤ <span class="tag-eq">(2)</span></div><div class="row">2 ( ε<span class="ss"><span>t=0</span><span>F</span></span>(h, Φ) + ε<span class="ss"><span>t=1</span><span>F</span></span>(h, Φ) + B<sub>Φ</sub> · IPM<sub>G</sub>( p<span class="ss"><span>t=1</span><span>Φ</span></span> , p<span class="ss"><span>t=0</span><span>Φ</span></span> ) − 2σ<span class="ss"><span>2</span><span>Y</span></span> )</div></div><details><summary>原文（英文）</summary><blockquote class="orig"><b>Theorem 1.</b> <i>Under the conditions of Lemma 1, and assuming the loss L used to define ℓ<sub>h,Φ</sub> in Definitions 2 and 3 is the squared loss, we have:</i><br>ε<sub>PEHE</sub>(h,Φ) ≤ 2( ε<sub>CF</sub>(h,Φ) + ε<sub>F</sub>(h,Φ) − 2σ²<sub>Y</sub> ) ≤ 2( ε<sub>F</sub><sup>t=0</sup>(h,Φ) + ε<sub>F</sub><sup>t=1</sup>(h,Φ) + B<sub>Φ</sub> IPM<sub>G</sub>(p<sub>Φ</sub><sup>t=1</sup>, p<sub>Φ</sub><sup>t=0</sup>) − 2σ²<sub>Y</sub> ),<br><i>where ε<sub>F</sub> and ε<sub>CF</sub> are defined w.r.t. the squared loss, and σ²<sub>Y</sub> is the variance of the outcomes Y<sub>t</sub> (see Definition A11 in Appendix for detailed definition).</i></blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>ε<sub>PEHE</sub>(h, Φ)</td><td>我们真正想小的量：个体效应估计的 PEHE 误差，对整个总体 p(x) 平均（Definition 6，Eq. 1）。</td></tr><tr><td>h, Φ</td><td>假设 h 与表示 Φ；估计的效应是 f(x,t) = h(Φ(x), t) 给出的 f(x,1) − f(x,0)。</td></tr><tr><td>ε<sub>CF</sub>(h, Φ)</td><td>反事实损失：在"处理倾向被翻转"的分布 p(x, 1−t) 上的期望损失，<b>无法直接估计</b>（Definition 2）。</td></tr><tr><td>ε<sub>F</sub>(h, Φ)</td><td>事实损失：在真实分布 p(x, t) 上的期望损失，等于普通监督学习的泛化误差（Definition 2）。</td></tr><tr><td>ε<span class="ss"><span>t=1</span><span>F</span></span>, ε<span class="ss"><span>t=0</span><span>F</span></span></td><td>处理组、对照组各自的事实损失（Definition 3）；ε<sub>F</sub> = u·ε<span class="ss"><span>t=1</span><span>F</span></span> + (1−u)·ε<span class="ss"><span>t=0</span><span>F</span></span>。</td></tr><tr><td>B<sub>Φ</sub></td><td>常数 B<sub>Φ</sub> &gt; 0，使损失函数缩放后落入 IPM 所用函数族 G（Lemma 1 的条件）。</td></tr><tr><td>IPM<sub>G</sub>(·,·)</td><td>积分概率度量，用函数族 G 衡量两个分布的距离。</td></tr><tr><td>p<span class="ss"><span>t=1</span><span>Φ</span></span>, p<span class="ss"><span>t=0</span><span>Φ</span></span></td><td>处理组、对照组的特征经 Φ 映射后，在表示空间 <span class="sp">R</span> 里的分布（Definition 1）。</td></tr><tr><td>σ<span class="ss"><span>2</span><span>Y</span></span></td><td>结果 Y<sub>t</sub> 的方差（噪声项）。因为 PEHE 按条件均值 m<sub>t</sub>(x) 定义，而 ℓ 里含有不可约的噪声，所以要减掉。具体定义（Definition A11）在补充材料，<b>本 PDF 未给出</b>。</td></tr></tbody></table><p class="muted" style="margin-top:10px">一句话：<b>个体效应的误差 ≤ 两个处理组各自的普通预测误差 + 两组在表示空间里的分布距离</b>（再减去与模型无关的噪声项）。推导与数值检验见 <a href="#s4">④</a>。</p></div></div>
+<section id="s1"><h2>① 问题与假设 <span class="tag paper">Sec 1</span></h2>
+<p>医院里有旧药和新药，医生想知道：<b>对这位具体的病人，新药比旧药好多少？</b>这是个体处理效应（ITE）。论文用 Neyman–Rubin 潜在结果框架来写。</p>
+<div class="fcard " id="f-po"><div class="fhead"><span class="fname">潜在结果与一致性</span><span class="floc">论文 Sec 1</span></div><div class="fbody"><p>每个个体有两个<b>潜在结果</b>：用药和不用药各自的结果。但我们只能观测到实际接受的那一种，这条规则叫<b>一致性假设</b>。</p><div class="eq"><div class="row">x ∈ <span class="sp">X</span>, &nbsp; t ∈ {0, 1} &nbsp;&nbsp;→&nbsp;&nbsp; 潜在结果 Y<sub>0</sub>, Y<sub>1</sub></div><div class="row">观测规则：若 t = 0 则 y = Y<sub>0</sub>；若 t = 1 则 y = Y<sub>1</sub> &nbsp;&nbsp;（即 y = Y<sub>t</sub>）</div></div><details><summary>原文（英文）</summary><blockquote class="orig">For a unit with features x ∈ X, and an action t ∈ {0, 1}, there are two potential outcomes: Y<sub>0</sub> and Y<sub>1</sub>. For each unit we only observe one of the potential outcomes, according to treatment assignment: if t = 0 we observe y = Y<sub>0</sub>, if t = 1, we observe y = Y<sub>1</sub>; this is known as the consistency assumption.</blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>x</td><td>单位（个体）的特征，如化验指标、人口学信息，x ∈ <span class="sp">X</span>。</td></tr><tr><td><span class="sp">X</span></td><td>特征空间（Sec 3.1 里设为 R<sup>d</sup> 的有界子集）。</td></tr><tr><td>t</td><td>处理（action / treatment / intervention），二元：t = 0 标准药，t = 1 新药。</td></tr><tr><td>Y<sub>0</sub>, Y<sub>1</sub></td><td>潜在结果：该个体若接受 t = 0 或 t = 1 会得到的结果，如血糖水平。</td></tr><tr><td>y</td><td>实际观测到的结果，等于 Y<sub>t</sub>。另一个潜在结果永远看不到。</td></tr></tbody></table></div></div>
+<div class="fcard " id="f-ite"><div class="fhead"><span class="fname">条件均值与个体处理效应 ITE</span><span class="floc">论文 Sec 1</span></div><div class="fbody"><p>ITE 是"给定特征 x 时，新药相对旧药的期望效应"。它也叫条件平均处理效应（CATE）。目标是找到估计 τ̂，使某个损失（如均方误差）很小。</p><div class="eq"><div class="row">m<sub>1</sub>(x) = E[ Y<sub>1</sub> | x ], &nbsp;&nbsp; m<sub>0</sub>(x) = E[ Y<sub>0</sub> | x ]</div><div class="row">τ(x) := E[ Y<sub>1</sub> − Y<sub>0</sub> | x ] = m<sub>1</sub>(x) − m<sub>0</sub>(x)</div><div class="row">目标：找 τ̂ 使 E[ ( τ̂ − τ )<sup>2</sup> ] 很小</div></div><details><summary>原文（英文）</summary><blockquote class="orig">We will denote m<sub>1</sub>(x) = E[Y<sub>1</sub>|x], m<sub>0</sub>(x) = E[Y<sub>0</sub>|x]. We are interested in learning the function τ(x) := E[Y<sub>1</sub> − Y<sub>0</sub>|x] = m<sub>1</sub>(x) − m<sub>0</sub>(x). τ(x) is the expected treatment effect of t = 1 relative to t = 0 on a unit with characteristics x, or the Individual Treatment Effect (ITE). Our goal is to find an estimate τ̂ of τ such that some loss function, e.g. E[(τ̂ − τ)<sup>2</sup>], is small.</blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>m<sub>1</sub>(x), m<sub>0</sub>(x)</td><td>条件均值函数：特征为 x 的人群，全部用新药 / 全部用旧药时的平均结果。</td></tr><tr><td>τ(x)</td><td>个体处理效应 ITE（也叫 CATE）：t = 1 相对 t = 0 在特征为 x 的单位上的期望效应。</td></tr><tr><td>τ̂</td><td>对 τ 的估计（待学习的函数）。</td></tr><tr><td>E[·]</td><td>期望。</td></tr></tbody></table></div></div>
+<div class="fcard " id="f-ign"><div class="fhead"><span class="fname">强可忽略性</span><span class="floc">论文 Sec 1</span></div><div class="fbody"><p>两部分：<b>没有隐藏混杂</b>（给定 x 后，谁用药与潜在结果无关）和<b>重叠</b>（每种 x 的人两种药都有可能用到）。它是 τ(x) 可被识别的充分条件；论文说它<b>无法从数据检验</b>，只能靠领域知识判断。</p><div class="eq"><div class="row">( Y<sub>1</sub>, Y<sub>0</sub> ) &nbsp;⊥⊥&nbsp; t &nbsp;|&nbsp; x</div><div class="row">0 &lt; p( t = 1 | x ) &lt; 1 &nbsp;&nbsp; 对所有 x</div></div><details><summary>原文（英文）</summary><blockquote class="orig">We formalize this assumption by using the standard strong ignorability condition: (Y<sub>1</sub>, Y<sub>0</sub>) ⊥⊥ t | x, and 0 &lt; p(t = 1|x) &lt; 1 for all x. Strong ignorability is a sufficient condition for the ITE function τ(x) to be identifiable [...]: see proof in the supplement.</blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>⊥⊥</td><td>统计独立。</td></tr><tr><td>( Y<sub>1</sub>, Y<sub>0</sub> ) ⊥⊥ t | x</td><td>给定 x，处理分配 t 与两个潜在结果独立：所有影响用药决定的因素都在 x 里（无隐藏混杂）。</td></tr><tr><td>p( t = 1 | x )</td><td>倾向得分：特征为 x 的人被分到新药的概率。</td></tr><tr><td>0 &lt; p &lt; 1</td><td>重叠：每个 x 都有机会得到两种处理。</td></tr></tbody></table><p class="muted" style="margin-top:10px"><b>它带来什么：</b>在强可忽略性下，数据里可算的 E[y | x, t] 等于我们想要的 m<sub>t</sub>(x) = E[Y<sub>t</sub> | x]（这是识别的核心；论文把证明放在补充材料，这里只陈述结论，不是原文推导）。于是 ITE 变成"学两个回归函数再相减"。</p></div></div>
+<div class="fcard " id="f-ate"><div class="fhead"><span class="fname">平均处理效应 ATE</span><span class="floc">论文 Sec 2</span></div><div class="fbody"><p>对 ITE 在总体上取平均，得到一个数。论文主要关心个体层面，但与 ATE 对比。</p><div class="eq"><div class="row">ATE = E<sub>x∼p(x)</sub> [ τ(x) ]</div></div><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>ATE</td><td>平均处理效应。</td></tr><tr><td>p(x)</td><td>特征 x 在总体中的分布。</td></tr><tr><td>E<sub>x∼p(x)</sub></td><td>对 x 按 p(x) 取期望。</td></tr></tbody></table></div></div>
+<h3>为什么用药不随机会带来麻烦？ <span class="tag mine">自编例子</span></h3>
+<p>设总共 1000 人，富人 400、穷人 600。下面的表格展示了"观测数据"和"随机试验"的差别：只看用药组的人，他们的特征分布 <span class="m">p(x | t=1)</span>（论文写作 p<sub>t=1</sub>(x)）是什么，只看不用药组是 <span class="m">p(x | t=0)</span>（p<sub>t=0</sub>(x)）。</p>
+<figure class="fig">
+  <div class="controls"><div class="seg" role="group" aria-label="选择数据来源"><button id="src-obs" type="button" aria-pressed="true">观测数据（富人更爱用新药）</button><button id="src-rct" type="button" aria-pressed="false">随机试验（抛硬币分配）</button></div></div>
+  <div class="scroll"><table class="data" id="srctab" style="min-width:520px"></table></div>
+  <p class="live" id="srclive" aria-live="polite"></p>
+  <figcaption>数据是我设的。距离按"富人与穷人相距 1"的两点空间计算：Wasserstein = |p(富|t=1) − p(富|t=0)|。随机化让两组的构成一致，这正是第 ④ 节里 IPM = 0 的情形。</figcaption>
+</figure>
+<details class="proof"><summary>隐藏混杂的数字例子（自编）</summary>
+<p>设"积极性"没有被记录，一半人积极（500）、一半不积极（500）。药完全无效：积极者结果 0.8，不积极者 0.2，所以真实 τ = 0。但积极者 90% 去用药，不积极者 10% 去用药。</p>
+<table class="data"><thead><tr><th></th><th class="num">积极</th><th class="num">不积极</th><th class="num">合计</th><th class="num">平均结果 E[y | t]</th></tr></thead><tbody>
+<tr><td>用药组 t=1</td><td class="num">450</td><td class="num">50</td><td class="num">500</td><td class="num">(450×0.8 + 50×0.2)/500 = 0.74</td></tr>
+<tr><td>不用药组 t=0</td><td class="num">50</td><td class="num">450</td><td class="num">500</td><td class="num">(50×0.8 + 450×0.2)/500 = 0.26</td></tr></tbody></table>
+<p>数据给出的"效应"是 0.74 − 0.26 = 0.48，真实效应是 0。原因：(Y<sub>1</sub>, Y<sub>0</sub>) ⊥⊥ t | x 被破坏，E[y | t=1] = E[Y<sub>1</sub> | t=1] ≠ E[Y<sub>1</sub>]。这是偏差，数据再多也消不掉。若把"积极性"记入 x，则每一类内部两组结果相同，问题消失。</p></details>
+</section>
+<section id="s2"><h2>② 相关工作 <span class="tag paper">Sec 2</span></h2>
+<p>这一节在回答：前人怎么估个体效应，缺什么，本文补什么。论文自己限定了范围：它假设因果结构简单且已知，即 (Y<sub>1</sub>, Y<sub>0</sub>) ⊥⊥ x | t 一类的设定、无隐藏混杂，所以不涉及因果发现。</p>
+<div class="scroll"><table class="data" style="min-width:700px"><thead><tr><th>方法族</th><th>做法</th><th>论文指出的问题 / 与本文的关系</th></tr></thead><tbody>
+<tr><td>协变量调整<br>（G-computation）</td><td>学 m<sub>1</sub>(x)、m<sub>0</sub>(x)，再相减，既可估 ITE 也可估 ATE</td><td>以往多研究渐近一致性，缺有限样本泛化误差分析。本文指出一个被忽略的方差来源（两组分布不平衡），并提出新的正则：学习使两组 IPM 更小的表示，带来新的偏差-方差权衡</td></tr>
+<tr><td>加权方法<br>（IPW 等）</td><td>按倾向得分重新加权，使两组更可比；也用于估计条件效应</td><td>高维时方差难控制；双重稳健方法把加权与协变量调整结合，减小模型偏差</td></tr>
+<tr><td>机器学习做个体效应</td><td>树方法（Wager &amp; Athey；Athey &amp; Imbens），有随机实验数据时找异质性，神经网络（含 deep IV）</td><td>本文关注<b>泛化误差</b>而不是渐近一致性，且只用观测数据，不依赖随机实验或工具变量</td></tr>
+<tr><td>域适应</td><td>训练分布与测试分布不同时的泛化界（Ben-David 等，A-distance、discrepancy 距离），DANN（Ganin 等）</td><td>本文的误差界与之相似，所用 IPM 与这些距离相关；算法与 DANN 类似</td></tr>
+<tr><td>前作 BNN<br>（Johansson et al. 2016）</td><td>学平衡表示，其上拟合线性岭回归，两步优化</td><td>前作只有"相对误差界"（比较反转处理分配与事实分配下的岭回归），不能说明表示的绝对好坏；本文给出<b>绝对</b>误差界，支持非线性假设和 Wasserstein/MMD，并做了更充分的实验</td></tr>
+</tbody></table></div>
+<details class="proof"><summary>IPW 的数字例子（自编；权重取标准的倾向得分倒数，论文只提到这类方法，没有给公式）</summary>
+<p>沿用上面的观测数据：p(t=1 | 富) = 300/400 = 0.75，p(t=1 | 穷) = 100/600 = 1/6。给处理组每个人的权重取 1/p(t=1 | x)：富人 ≈ 1.33，穷人 = 6。加权后处理组：富 300×1.33 = 400，穷 100×6 = 600，恢复总体构成。代价：100 个穷人被放大 6 倍，p(t=1 | x) 越接近 0，权重越大，方差越难控制。若某类人的 p(t=1|x) 变成 1/100，权重就是 100。</p></details>
+</section>
+<section id="s3"><h2>③ 符号与定义 <span class="tag paper">Sec 3.1</span></h2>
+<p>这一节给 Theorem 1 备好"词汇表"。每张卡片是论文的一条定义，下面列出所有变量。</p>
+<div class="fcard " id="f-setup"><div class="fhead"><span class="fname">问题设定</span><span class="floc">论文 Sec 3.1</span></div><div class="fbody"><p>特征空间有界、结果是实数、处理是二元变量，存在一个满足强可忽略性的联合分布。处理组与对照组的分布就是按处理条件化的特征分布。</p><div class="eq"><div class="row"><span class="sp">X</span> ⊂ R<sup>d</sup> 有界, &nbsp; <span class="sp">Y</span> ⊂ R, &nbsp; t ∈ {0, 1}</div><div class="row">联合分布 p( x, t, Y<sub>0</sub>, Y<sub>1</sub> )，满足强可忽略性：( Y<sub>1</sub>, Y<sub>0</sub> ) ⊥⊥ t | x, &nbsp; 0 &lt; p( t=1 | x ) &lt; 1</div><div class="row">p<sub>t=1</sub>(x) := p( x | t = 1 ), &nbsp;&nbsp; p<sub>t=0</sub>(x) := p( x | t = 0 )</div></div><details><summary>原文（英文）</summary><blockquote class="orig">The space of covariates is a bounded subset X ⊂ R<sup>d</sup>. The outcome space is Y ⊂ R. Treatment t is a binary variable. We assume there exists a joint distribution p(x, t, Y<sub>0</sub>, Y<sub>1</sub>), such that (Y<sub>1</sub>, Y<sub>0</sub>) ⊥⊥ t|x and 0 &lt; p(t = 1|x) &lt; 1 for all x ∈ X (strong ignorability). The treated and control distributions are the distribution of the features x conditioned on treatment: p<sub>t=1</sub>(x) := p(x|t = 1), and p<sub>t=0</sub>(x) := p(x|t = 0), respectively.</blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>d</td><td>特征维度。</td></tr><tr><td><span class="sp">X</span></td><td>协变量（特征）空间，R<sup>d</sup> 的有界子集。</td></tr><tr><td><span class="sp">Y</span></td><td>结果空间，R 的子集。</td></tr><tr><td>p<sub>t=1</sub>(x)</td><td><b>处理组分布</b>：只看被分到 t=1 的单位，其特征 x 的分布。</td></tr><tr><td>p<sub>t=0</sub>(x)</td><td><b>对照组分布</b>：只看被分到 t=0 的单位，其特征 x 的分布。</td></tr></tbody></table></div></div>
+<div class="fcard " id="f-assump"><div class="fhead"><span class="fname">Assumption 1 与 Definition 1：表示函数 Φ</span><span class="floc">论文 Sec 3.1</span></div><div class="fbody"><p>Φ 把特征换成新的"坐标"，要求一一映射、可微，也就是不丢信息，可以还原。这样才能用变量替换公式把两组分布搬到表示空间里。</p><div class="eq"><div class="row">Φ : <span class="sp">X</span> → <span class="sp">R</span> &nbsp;（<span class="sp">R</span> = Φ 的像，表示空间）</div><div class="row">Assumption 1：Φ 二阶可微且一一映射；存在逆 Ψ : <span class="sp">R</span> → <span class="sp">X</span>，Ψ( Φ(x) ) = x 对所有 x ∈ <span class="sp">X</span></div><div class="row">Definition 1：p<span class="ss"><span>t=1</span><span>Φ</span></span>(r) := p<sub>Φ</sub>( r | t = 1 ), &nbsp;&nbsp; p<span class="ss"><span>t=0</span><span>Φ</span></span>(r) := p<sub>Φ</sub>( r | t = 0 )</div></div><details><summary>原文（英文）</summary><blockquote class="orig">Assumption 1. The representation Φ is a twice-differentiable, one-to-one function. Without loss of generality we will assume that R is the image of X under Φ. We then have Ψ : R → X as the inverse of Φ, such that Ψ(Φ(x)) = x for all x ∈ X. — Definition 1. Define p<sub>Φ</sub><sup>t=1</sup>(r) := p<sub>Φ</sub>(r|t = 1), p<sub>Φ</sub><sup>t=0</sup>(r) := p<sub>Φ</sub>(r|t = 0), to be the treated and control distributions induced over R.</blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>Φ</td><td>表示函数（representation function）。</td></tr><tr><td><span class="sp">R</span></td><td>表示空间；不失一般性取为 <span class="sp">X</span> 在 Φ 下的像。</td></tr><tr><td>Ψ</td><td>Φ 的逆映射。</td></tr><tr><td>p<sub>Φ</sub></td><td>Φ 把 <span class="sp">X</span> 上的分布"推前"到 <span class="sp">R</span> 上得到的分布。</td></tr><tr><td>p<span class="ss"><span>t=1</span><span>Φ</span></span>(r), p<span class="ss"><span>t=0</span><span>Φ</span></span>(r)</td><td>处理组、对照组在表示空间里的分布。一一映射时，可用变量替换公式（涉及 Ψ 的雅可比行列式）由 p<sub>t=1</sub>、p<sub>t=0</sub> 得到。</td></tr></tbody></table></div></div>
+<div class="fcard " id="f-loss"><div class="fhead"><span class="fname">Definition 2：损失 ℓ，事实损失与反事实损失</span><span class="floc">论文 Sec 3.1</span></div><div class="fbody"><p>先定义单个"(特征, 处理)"的期望损失 ℓ，再把它分别对"事实分布 p(x,t)"与"处理被翻转的分布 p(x,1−t)"积分。反事实世界就是<b>人还是那群人（p(x) 不变），但医生的开药倾向反过来</b>。</p><div class="eq"><div class="row">h : <span class="sp">R</span> × {0, 1} → <span class="sp">Y</span>, &nbsp;&nbsp; L : <span class="sp">Y</span> × <span class="sp">Y</span> → R<sub>+</sub></div><div class="row">ℓ<sub>h,Φ</sub>(x, t) = ∫<sub><span class="sp">Y</span></sub> L( Y<sub>t</sub>, h(Φ(x), t) ) · p( Y<sub>t</sub> | x ) dY<sub>t</sub></div><div class="row">ε<sub>F</sub>(h, Φ) = ∫<sub><span class="sp">X</span>×{0,1}</sub> ℓ<sub>h,Φ</sub>(x, t) · p(x, t) dx dt</div><div class="row">ε<sub>CF</sub>(h, Φ) = ∫<sub><span class="sp">X</span>×{0,1}</sub> ℓ<sub>h,Φ</sub>(x, t) · p(x, 1−t) dx dt</div></div><details><summary>原文（英文）</summary><blockquote class="orig">Definition 2. The expected loss for the unit and treatment pair (x, t) is: ℓ<sub>h,Φ</sub>(x, t) = ∫<sub>Y</sub> L(Y<sub>t</sub>, h(Φ(x), t)) p(Y<sub>t</sub>|x) dY<sub>t</sub>. The expected factual and counterfactual losses of h and Φ are: ε<sub>F</sub>(h, Φ) = ∫<sub>X×{0,1}</sub> ℓ<sub>h,Φ</sub>(x, t) p(x, t) dx dt, ε<sub>CF</sub>(h, Φ) = ∫<sub>X×{0,1}</sub> ℓ<sub>h,Φ</sub>(x, t) p(x, 1−t) dx dt.</blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>h</td><td>假设：在表示空间上预测结果，h(Φ(x), t)。</td></tr><tr><td>L</td><td>损失函数，取值非负，如平方损失。</td></tr><tr><td>ℓ<sub>h,Φ</sub>(x, t)</td><td>对"特征 x、处理 t"这一对，模型预测的期望损失，对潜在结果 Y<sub>t</sub> 的随机性取平均。</td></tr><tr><td>p( Y<sub>t</sub> | x )</td><td>给定 x，潜在结果 Y<sub>t</sub> 的条件分布。</td></tr><tr><td>ε<sub>F</sub>(h, Φ)</td><td><b>事实损失</b>（Factual）：在真实分布 p(x, t) 上的平均，可从数据估计。</td></tr><tr><td>ε<sub>CF</sub>(h, Φ)</td><td><b>反事实损失</b>（Counterfactual）：在 p(x, 1−t) 上的平均。只有事实样本，所以不能直接估计。</td></tr><tr><td>p(x, 1−t)</td><td>把处理标签翻转后的联合分布：等于 p(x)·p(1−t | x)。</td></tr></tbody></table></div></div>
+<div class="fcard " id="f-treated"><div class="fhead"><span class="fname">Definition 3：两组各自的事实损失</span><span class="floc">论文 Sec 3.1</span></div><div class="fbody"><p>把事实损失按处理组、对照组拆开，各自在组内分布上取平均。拆开后，总的事实损失是两者按人数比例加权。</p><div class="eq"><div class="row">ε<span class="ss"><span>t=1</span><span>F</span></span>(h, Φ) = ∫<sub><span class="sp">X</span></sub> ℓ<sub>h,Φ</sub>(x, 1) · p<sub>t=1</sub>(x) dx</div><div class="row">ε<span class="ss"><span>t=0</span><span>F</span></span>(h, Φ) = ∫<sub><span class="sp">X</span></sub> ℓ<sub>h,Φ</sub>(x, 0) · p<sub>t=0</sub>(x) dx</div><div class="row">令 u := p(t = 1)：&nbsp; ε<sub>F</sub>(h, Φ) = u · ε<span class="ss"><span>t=1</span><span>F</span></span>(h, Φ) + (1 − u) · ε<span class="ss"><span>t=0</span><span>F</span></span>(h, Φ)</div></div><details><summary>原文（英文）</summary><blockquote class="orig">Definition 3. The expected factual treated and control losses are: ε<sub>F</sub><sup>t=1</sup>(h, Φ) = ∫<sub>X</sub> ℓ<sub>h,Φ</sub>(x, 1) p<sub>t=1</sub>(x) dx, ε<sub>F</sub><sup>t=0</sup>(h, Φ) = ∫<sub>X</sub> ℓ<sub>h,Φ</sub>(x, 0) p<sub>t=0</sub>(x) dx. For u := p(t = 1), it is immediate to show that ε<sub>F</sub>(h, Φ) = u ε<sub>F</sub><sup>t=1</sup>(h, Φ) + (1 − u) ε<sub>F</sub><sup>t=0</sup>(h, Φ).</blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>ε<span class="ss"><span>t=1</span><span>F</span></span>(h, Φ)</td><td>处理组上的平均损失（用 h<sub>1</sub> 预测处理组自己）。</td></tr><tr><td>ε<span class="ss"><span>t=0</span><span>F</span></span>(h, Φ)</td><td>对照组上的平均损失。</td></tr><tr><td>u</td><td>u := p(t=1)，总体里被处理的比例。由强可忽略性，0 &lt; u &lt; 1。</td></tr></tbody></table></div></div>
+<div class="fcard " id="f-pehe"><div class="fhead"><span class="fname">Definitions 4-6：ITE、估计的 ITE 与 PEHE</span><span class="floc">论文 Sec 3.1 · Eq. (1)</span></div><div class="fbody"><p>PEHE（Precision in Estimation of Heterogeneous Effect，Hill 2011）是我们真正想小的量：估计的个体效应与真实个体效应之差的平方，在<b>整个总体 p(x)</b> 上平均。</p><div class="eq"><div class="row">Def 4：τ(x) := E[ Y<sub>1</sub> − Y<sub>0</sub> | x ]</div><div class="row">假设 f : <span class="sp">X</span> × {0, 1} → <span class="sp">Y</span>，例如 f(x, t) = h( Φ(x), t )</div><div class="row">Def 5：τ̂<sub>f</sub>(x) = f(x, 1) − f(x, 0)</div><div class="row">Def 6：ε<sub>PEHE</sub>(f) = ∫<sub><span class="sp">X</span></sub> ( τ̂<sub>f</sub>(x) − τ(x) )<sup>2</sup> · p(x) dx &nbsp;<span class="tag-eq">(1)</span></div><div class="row">当 f(x, t) = h( Φ(x), t ) 时，记 ε<sub>PEHE</sub>(h, Φ) := ε<sub>PEHE</sub>(f)</div></div><details><summary>原文（英文）</summary><blockquote class="orig">Definition 6. The expected Precision in Estimation of Heterogeneous Effect (PEHE, Hill (2011)) loss of f is: ε<sub>PEHE</sub>(f) = ∫<sub>X</sub> (τ̂<sub>f</sub>(x) − τ(x))<sup>2</sup> p(x) dx, (1). When f(x, t) = h(Φ(x), t), we will also use the notation ε<sub>PEHE</sub>(h, Φ) = ε<sub>PEHE</sub>(f).</blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>τ(x)</td><td>真实 ITE（Def 4，与 Sec 1 相同）。</td></tr><tr><td>f</td><td>定义在 <span class="sp">X</span> × {0,1} 上的假设；f(x,t) = h(Φ(x),t) 是它的一个例子。</td></tr><tr><td>τ̂<sub>f</sub>(x)</td><td>假设 f 对单位 x 给出的处理效应估计 = f(x,1) − f(x,0)。</td></tr><tr><td>ε<sub>PEHE</sub>(f)</td><td>f 的 PEHE 损失：ITE 估计误差的平方，对 p(x) 积分。</td></tr><tr><td>p(x)</td><td>总体的特征分布。</td></tr></tbody></table></div></div>
+<div class="fcard " id="f-ipm"><div class="fhead"><span class="fname">积分概率度量 IPM</span><span class="floc">论文 Sec 3.1</span></div><div class="fbody"><p>挑一族函数 G，找出最能区分 p 与 q 的那个函数 g，看它在两个分布下的平均值差多大。差得越多，两个分布越不同。</p><div class="eq"><div class="row">IPM<sub>G</sub>(p, q) := sup<sub>g ∈ <span class="sp">G</span></sub> | ∫<sub>S</sub> g(s) ( p(s) − q(s) ) ds |</div></div><details><summary>原文（英文）</summary><blockquote class="orig">For two probability density functions p, q defined over S ⊆ R<sup>d</sup>, and for a function family G of functions g : S → R, we have that IPM<sub>G</sub>(p, q) := sup<sub>g∈G</sub> |∫<sub>S</sub> g(s)(p(s) − q(s)) ds|. Integral probability metrics are always symmetric and obey the triangle inequality, and trivially satisfy IPM<sub>G</sub>(p, p) = 0. For rich enough function families G, we also have that IPM<sub>G</sub>(p, q) = 0 ⟹ p = q, and then IPM<sub>G</sub> is a true metric.</blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>p, q</td><td>定义在 S ⊆ R<sup>d</sup> 上的两个概率密度。</td></tr><tr><td><span class="sp">G</span></td><td>函数 g : S → R 的一个函数族。</td></tr><tr><td>sup</td><td>上确界：在 <span class="sp">G</span> 里取使绝对值最大的那个 g。</td></tr><tr><td>性质</td><td>总是对称、满足三角不等式，且 IPM<sub>G</sub>(p, p) = 0。当 <span class="sp">G</span> 足够丰富时，IPM<sub>G</sub>(p, q) = 0 ⟹ p = q，它就是真正的距离。</td></tr><tr><td><span class="sp">G</span> 的例子</td><td>有界连续函数族；<b>1-Lipschitz 函数族</b>（对应 Wasserstein 距离，记 Wass(p, q)）；<b>通用 RKHS 的单位球</b>（对应 MMD，记 MMD(p, q)）。三者都使 IPM 成为真度量。</td></tr></tbody></table></div></div>
+</section>
+<section id="s4"><h2>④ Lemma 1 与 Theorem 1 <span class="tag paper">Sec 3.2</span></h2>
+<p>目标：PEHE 依赖真实 ITE，算不出来；ε<sub>F</sub> 能估计，ε<sub>CF</sub> 不能。定理要用"能估计的量"给 PEHE 找一个上界。先看两个陈述，再看推导，最后用数字检验。</p>
+<div class="fcard " id="lemma1"><div class="fhead"><span class="fname">Lemma 1</span><span class="floc">论文 Sec 3.2</span></div><div class="fbody"><p><b>说的是什么：</b>反事实损失不会比"两组事实损失的加权和"大太多，多出来的部分最多是 B<sub>Φ</sub> 乘以两组在表示空间里的距离。</p><div class="eq"><div class="row">ε<sub>CF</sub>(h, Φ) &nbsp;≤</div><div class="row">&nbsp;&nbsp;&nbsp;&nbsp;(1 − u) · ε<span class="ss"><span>t=1</span><span>F</span></span>(h, Φ) + u · ε<span class="ss"><span>t=0</span><span>F</span></span>(h, Φ)</div><div class="row">&nbsp;&nbsp;&nbsp;&nbsp;+ B<sub>Φ</sub> · IPM<sub>G</sub>( p<span class="ss"><span>t=1</span><span>Φ</span></span> , p<span class="ss"><span>t=0</span><span>Φ</span></span> )</div></div><details><summary>原文（英文）</summary><blockquote class="orig"><b>Lemma 1.</b> <i>Let Φ : X → R be a one-to-one representation function, with inverse Ψ. Let h : R × {0, 1} → Y be an hypothesis. Let G be a family of functions g : R → Y. Assume there exists a constant B<sub>Φ</sub> &gt; 0, such that for fixed t ∈ {0, 1}, the per-unit expected loss functions ℓ<sub>h,Φ</sub>(Ψ(r), t) (Definition 2) obey (1/B<sub>Φ</sub>) · ℓ<sub>h,Φ</sub>(Ψ(r), t) ∈ G. We have:</i> ε<sub>CF</sub>(h, Φ) ≤ (1 − u) ε<sub>F</sub><sup>t=1</sup>(h, Φ) + u ε<sub>F</sub><sup>t=0</sup>(h, Φ) + B<sub>Φ</sub> · IPM<sub>G</sub>(p<sub>Φ</sub><sup>t=1</sup>, p<sub>Φ</sub><sup>t=0</sup>), <i>where ε<sub>CF</sub>, ε<sub>F</sub><sup>t=0</sup> and ε<sub>F</sub><sup>t=1</sup> are as in Definitions 2 and 3.</i></blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>Φ : <span class="sp">X</span> → <span class="sp">R</span></td><td>一一映射的表示函数，逆为 Ψ（Assumption 1）。</td></tr><tr><td>h : <span class="sp">R</span> × {0,1} → <span class="sp">Y</span></td><td>假设。</td></tr><tr><td><span class="sp">G</span></td><td>函数族，其中的函数 g : <span class="sp">R</span> → <span class="sp">Y</span>（论文原文如此写）。</td></tr><tr><td>B<sub>Φ</sub> &gt; 0</td><td>存在这样的常数：对固定的 t ∈ {0, 1}，逐单位期望损失 ℓ<sub>h,Φ</sub>(Ψ(r), t)（Definition 2）满足 (1/B<sub>Φ</sub>) · ℓ<sub>h,Φ</sub>(Ψ(r), t) ∈ <span class="sp">G</span>。</td></tr><tr><td>u := p(t = 1)</td><td>总体处理比例，由强可忽略性 0 &lt; u &lt; 1。</td></tr><tr><td>ε<sub>CF</sub>, ε<span class="ss"><span>t=1</span><span>F</span></span>, ε<span class="ss"><span>t=0</span><span>F</span></span></td><td>Definitions 2 与 3 中的量。</td></tr><tr><td>IPM<sub>G</sub>(p<span class="ss"><span>t=1</span><span>Φ</span></span>, p<span class="ss"><span>t=0</span><span>Φ</span></span>)</td><td>表示空间里两组分布的 IPM 距离。</td></tr></tbody></table></div></div>
+<div class="fcard thm" id="theorem1"><div class="fhead"><span class="fname">Theorem 1（同上，完整版）</span><span class="floc">论文 Sec 3.2 · Eq. (2)</span></div><div class="fbody"><p><b>条件：</b>Lemma 1 的条件 + L 为平方损失。</p><div class="eq"><div class="row">ε<sub>PEHE</sub>(h, Φ) &nbsp;≤&nbsp; 2 ( ε<sub>CF</sub>(h, Φ) + ε<sub>F</sub>(h, Φ) − 2σ<span class="ss"><span>2</span><span>Y</span></span> ) &nbsp;≤ <span class="tag-eq">(2)</span></div><div class="row">2 ( ε<span class="ss"><span>t=0</span><span>F</span></span>(h, Φ) + ε<span class="ss"><span>t=1</span><span>F</span></span>(h, Φ) + B<sub>Φ</sub> · IPM<sub>G</sub>( p<span class="ss"><span>t=1</span><span>Φ</span></span> , p<span class="ss"><span>t=0</span><span>Φ</span></span> ) − 2σ<span class="ss"><span>2</span><span>Y</span></span> )</div></div><details><summary>原文（英文）</summary><blockquote class="orig"><b>Theorem 1.</b> <i>Under the conditions of Lemma 1, and assuming the loss L used to define ℓ<sub>h,Φ</sub> in Definitions 2 and 3 is the squared loss, we have:</i><br>ε<sub>PEHE</sub>(h,Φ) ≤ 2( ε<sub>CF</sub>(h,Φ) + ε<sub>F</sub>(h,Φ) − 2σ²<sub>Y</sub> ) ≤ 2( ε<sub>F</sub><sup>t=0</sup>(h,Φ) + ε<sub>F</sub><sup>t=1</sup>(h,Φ) + B<sub>Φ</sub> IPM<sub>G</sub>(p<sub>Φ</sub><sup>t=1</sup>, p<sub>Φ</sub><sup>t=0</sup>) − 2σ²<sub>Y</sub> ),<br><i>where ε<sub>F</sub> and ε<sub>CF</sub> are defined w.r.t. the squared loss, and σ²<sub>Y</sub> is the variance of the outcomes Y<sub>t</sub> (see Definition A11 in Appendix for detailed definition).</i></blockquote></details><table class="vars"><thead><tr><th>符号</th><th>含义</th></tr></thead><tbody><tr><td>ε<sub>PEHE</sub>(h, Φ)</td><td>我们真正想小的量：个体效应估计的 PEHE 误差，对整个总体 p(x) 平均（Definition 6，Eq. 1）。</td></tr><tr><td>h, Φ</td><td>假设 h 与表示 Φ；估计的效应是 f(x,t) = h(Φ(x), t) 给出的 f(x,1) − f(x,0)。</td></tr><tr><td>ε<sub>CF</sub>(h, Φ)</td><td>反事实损失：在"处理倾向被翻转"的分布 p(x, 1−t) 上的期望损失，<b>无法直接估计</b>（Definition 2）。</td></tr><tr><td>ε<sub>F</sub>(h, Φ)</td><td>事实损失：在真实分布 p(x, t) 上的期望损失，等于普通监督学习的泛化误差（Definition 2）。</td></tr><tr><td>ε<span class="ss"><span>t=1</span><span>F</span></span>, ε<span class="ss"><span>t=0</span><span>F</span></span></td><td>处理组、对照组各自的事实损失（Definition 3）；ε<sub>F</sub> = u·ε<span class="ss"><span>t=1</span><span>F</span></span> + (1−u)·ε<span class="ss"><span>t=0</span><span>F</span></span>。</td></tr><tr><td>B<sub>Φ</sub></td><td>常数 B<sub>Φ</sub> &gt; 0，使损失函数缩放后落入 IPM 所用函数族 G（Lemma 1 的条件）。</td></tr><tr><td>IPM<sub>G</sub>(·,·)</td><td>积分概率度量，用函数族 G 衡量两个分布的距离。</td></tr><tr><td>p<span class="ss"><span>t=1</span><span>Φ</span></span>, p<span class="ss"><span>t=0</span><span>Φ</span></span></td><td>处理组、对照组的特征经 Φ 映射后，在表示空间 <span class="sp">R</span> 里的分布（Definition 1）。</td></tr><tr><td>σ<span class="ss"><span>2</span><span>Y</span></span></td><td>结果 Y<sub>t</sub> 的方差（噪声项）。因为 PEHE 按条件均值 m<sub>t</sub>(x) 定义，而 ℓ 里含有不可约的噪声，所以要减掉。具体定义（Definition A11）在补充材料，<b>本 PDF 未给出</b>。</td></tr></tbody></table></div></div>
+<h3>B<sub>Φ</sub> 是什么、怎么得到 <span class="tag paper">论文 Sec 3.2 后的说明</span></h3>
+<ul class="read" style="max-width:74ch">
+  <li><b>G 越小，界越紧</b>；但太小会得到无法计算的界。例如最小的选择 G = { ℓ<sub>h,Φ</sub>(x,0), ℓ<sub>h,Φ</sub>(x,1) } 需要在 p<span class="ss"><span>t=0</span><span>Φ</span></span> 上算 Y<sub>1</sub> 的期望、在 p<span class="ss"><span>t=1</span><span>Φ</span></span> 上算 Y<sub>0</sub> 的期望，而这些根本观测不到。</li>
+  <li>论文用两个函数族：<b>1-Lipschitz</b> 函数族，IPM 就是 Wasserstein 距离 Wass(p, q)；<b>范数不超过 1 的 RKHS</b> 函数，IPM 就是 MMD(p, q)。两者都能从有限样本一致地估计。</li>
+  <li><b>要显式算出 B<sub>Φ</sub>，需要额外假设。</b>Wasserstein 情形：损失 L、p(Y<sub>t</sub>|x) 与 h 的 Lipschitz 常数、Φ 的雅可比矩阵的条件数。MMD 情形：h、Φ 的 RKHS 可表示性与范数，以及 Y<sub>t</sub>|x 的标准差。完整细节在补充材料的 Theorem 2 与 3，<b>本 PDF 未给出</b>。</li>
+  <li><b>把 Φ 缩小会让 B<sub>Φ</sub> 变大</b>，所以定理里不会出现"把 Φ 缩得任意小来让 IPM 变 0"这类平凡解。（这条保护在算法里消失，因为 B<sub>Φ</sub> 被并入 α，所以算法要归一化 Φ，见 <a href="algorithm.html">算法图解</a>。）</li>
+  <li><b>对有限样本：</b>ε<span class="ss"><span>t=0</span><span>F</span></span> 与 ε<span class="ss"><span>t=1</span><span>F</span></span> 还能进一步用各自的经验损失加上模型复杂度项来上界（标准的学习理论论证）；IPM 也能从有限样本一致估计。</li>
+  <li><b>负的方差项 σ<span class="ss"><span>2</span><span>Y</span></span>：</b>来自这样一个事实：PEHE 是按条件均值函数 m<sub>t</sub>(x) 定义的，而不是去拟合随机变量 Y<sub>t</sub>。</li>
+</ul>
+<details class="proof"><summary>Lemma 1 的推导（重建：补充材料中的证明不在本 PDF，以下是按正文思路与定义写出的推导，已数值检验）</summary>
+<ol class="steps">
+<li>按 t 拆开（Def 2，对 t 求和）：ε<sub>CF</sub> = ∫ ℓ<sub>h,Φ</sub>(x,1) p(x, t=0) dx + ∫ ℓ<sub>h,Φ</sub>(x,0) p(x, t=1) dx。<span class="why">反事实世界里，评估"用新药"的损失用的是没用新药的人。</span></li>
+<li>用边缘概率改写：p(x, t=0) = (1−u) p<sub>t=0</sub>(x)，p(x, t=1) = u p<sub>t=1</sub>(x)，所以 ε<sub>CF</sub> = (1−u)∫ ℓ<sub>h,Φ</sub>(x,1) p<sub>t=0</sub> dx + u ∫ ℓ<sub>h,Φ</sub>(x,0) p<sub>t=1</sub> dx。</li>
+<li>减去 (1−u)ε<span class="ss"><span>t=1</span><span>F</span></span> + uε<span class="ss"><span>t=0</span><span>F</span></span>（Def 3），差为 (1−u)∫ ℓ<sub>h,Φ</sub>(x,1)[p<sub>t=0</sub> − p<sub>t=1</sub>]dx + u∫ ℓ<sub>h,Φ</sub>(x,0)[p<sub>t=1</sub> − p<sub>t=0</sub>]dx。<span class="why">差只剩"同一个损失函数在两组分布下的平均之差"。</span></li>
+<li>Φ 一一映射 ⟹ 变量替换：∫ ℓ<sub>h,Φ</sub>(x,t) p(x) dx = ∫ ℓ<sub>h,Φ</sub>(Ψ(r), t) p<sub>Φ</sub>(r) dr，积分搬到表示空间。<span class="why">这一步用到 Assumption 1；没有 Ψ，ℓ(Ψ(r),t) 就没有意义。</span></li>
+<li>因为 ℓ<sub>h,Φ</sub>(Ψ(r),t)/B<sub>Φ</sub> ∈ <span class="sp">G</span>，由 IPM 定义，∫ ℓ<sub>h,Φ</sub>(Ψ(r),t)(p − q) dr = B<sub>Φ</sub> ∫ (ℓ<sub>h,Φ</sub>/B<sub>Φ</sub>)(p − q) ≤ B<sub>Φ</sub> · IPM<sub>G</sub>(p, q)。</li>
+<li>两项的系数 (1−u) + u = 1，得到 Lemma 1。</li>
+</ol></details>
+<details class="proof"><summary>Theorem 1 的推导（重建，同上）</summary>
+<ol class="steps">
+<li>把 ITE 误差写成 τ̂<sub>f</sub> − τ = a − b，其中 a = f(x,1) − m<sub>1</sub>(x)，b = f(x,0) − m<sub>0</sub>(x)。</li>
+<li>(a − b)<sup>2</sup> ≤ 2a<sup>2</sup> + 2b<sup>2</sup>。</li>
+<li><b>平方损失的分解：</b>ℓ<sub>h,Φ</sub>(x,t) = E[(Y<sub>t</sub> − f(x,t))<sup>2</sup> | x]。f(x,t) 在固定 x 时是常数，记 m<sub>t</sub> = E[Y<sub>t</sub>|x]。把 (Y<sub>t</sub> − f) 写成 (Y<sub>t</sub> − m<sub>t</sub>) + (m<sub>t</sub> − f) 再展开平方：(Y<sub>t</sub> − m<sub>t</sub>)<sup>2</sup> + 2(Y<sub>t</sub> − m<sub>t</sub>)(m<sub>t</sub> − f) + (m<sub>t</sub> − f)<sup>2</sup>。取条件期望，交叉项因 E[Y<sub>t</sub> − m<sub>t</sub> | x] = 0 而消失，所以<br><b>ℓ<sub>h,Φ</sub>(x,t) = ( f(x,t) − m<sub>t</sub>(x) )<sup>2</sup> + Var( Y<sub>t</sub> | x )</b>（精确等式）。</li>
+<li>于是 a<sup>2</sup>、b<sup>2</sup> 分别等于 ℓ<sub>h,Φ</sub>(x,1) − Var(Y<sub>1</sub>|x)、ℓ<sub>h,Φ</sub>(x,0) − Var(Y<sub>0</sub>|x)，代入第 2 步并对 p(x) 积分：ε<sub>PEHE</sub> ≤ 2[ ∫(ℓ<sub>h,Φ</sub>(x,1)+ℓ<sub>h,Φ</sub>(x,0)) p(x) dx − ∫(Var(Y<sub>1</sub>|x)+Var(Y<sub>0</sub>|x)) p(x) dx ]。</li>
+<li>关键一步：对每个 t，p(x,t) + p(x,1−t) 对 t 求和后等于 p(x,0) + p(x,1) = p(x)，所以 ∫(ℓ<sub>h,Φ</sub>(x,1)+ℓ<sub>h,Φ</sub>(x,0)) p(x) dx = ε<sub>F</sub> + ε<sub>CF</sub>。<span class="why">PEHE 要求模型对所有 x 同时预测两种处理，正好是事实世界与反事实世界的合成。</span></li>
+<li>得第一个不等号：ε<sub>PEHE</sub> ≤ 2( ε<sub>F</sub> + ε<sub>CF</sub> − 噪声项 )。论文把噪声项写作 2σ<span class="ss"><span>2</span><span>Y</span></span>；Definition A11 不在本 PDF，我的重建里它对应 ∫(Var(Y<sub>1</sub>|x)+Var(Y<sub>0</sub>|x))p(x)dx，是否与论文逐字等同未核实，但作用相同：与模型无关的常数。</li>
+<li>代入 Lemma 1，并用 ε<sub>F</sub> = uε<span class="ss"><span>t=1</span><span>F</span></span> + (1−u)ε<span class="ss"><span>t=0</span><span>F</span></span>：ε<sub>F</sub> + (1−u)ε<span class="ss"><span>t=1</span><span>F</span></span> + uε<span class="ss"><span>t=0</span><span>F</span></span> = ε<span class="ss"><span>t=1</span><span>F</span></span> + ε<span class="ss"><span>t=0</span><span>F</span></span>。得第二个不等号，即 Eq. (2)。</li>
+</ol></details>
+<h3>数字检验：把 Lemma 1 与 Theorem 1 算一遍 <span class="tag mine">自编：两类人的玩具例子，无噪声</span></h3>
+<p>特征只有两种：富人 R（占 40%）、穷人 P（占 60%），两点之间距离设为 1，所以 1-Lipschitz 函数族下的 IPM 就是 Wasserstein，等于 |p(R|t=1) − p(R|t=0)|。结果无噪声，所以 σ<span class="ss"><span>2</span><span>Y</span></span> = 0。真实结果：m<sub>0</sub>(R)=2，m<sub>1</sub>(R)=5，m<sub>0</sub>(P)=1，m<sub>1</sub>(P)=2。模型 f 在 (R,0)、(R,1)、(P,0) 上都是对的，只有 (P,1) 处的预测可调。拖动滑块，看每个量怎么变，以及不等式是否始终成立。</p>
+<figure class="fig">
+  <div class="sliderrow"><label for="eR">p(t=1 | R)：富人用新药的概率</label><input id="eR" type="range" min="0.05" max="0.95" step="0.01" value="0.75"><output id="eR-o" for="eR">0.75</output></div>
+  <div class="sliderrow"><label for="eP">p(t=1 | P)：穷人用新药的概率</label><input id="eP" type="range" min="0.05" max="0.95" step="any" value="0.1667"><output id="eP-o" for="eP">0.17</output></div>
+  <div class="sliderrow"><label for="fP1">模型在 (P, 新药) 处的预测 f(P,1)（真值 2）</label><input id="fP1" type="range" min="-2" max="8" step="0.1" value="4"><output id="fP1-o" for="fP1">4.0</output></div>
+  <div class="scroll"><table class="data" id="extab" style="min-width:600px"></table></div>
+  <div class="readout" id="exread"></div>
+  <div class="eq" id="exchain" style="margin-top:12px"></div>
+  <p class="live" id="exlive" aria-live="polite"></p>
+  <figcaption>默认值对应我之前笔记里的例子：ε<sub>F</sub> = 0.4，ε<sub>CF</sub> = 2.0，PEHE = 2.4，Wasserstein ≈ 0.583，B<sub>Φ</sub> = 4。这里 Φ 取恒等映射，所以表示空间就是特征空间。B<sub>Φ</sub> 取使 ℓ(·,t)/B<sub>Φ</sub> 为 1-Lipschitz 的最小常数，即 max<sub>t</sub> |ℓ(R,t) − ℓ(P,t)|。</figcaption>
+</figure>
+<h3>每一项在说什么</h3>
+<div class="grid3">
+  <div class="card"><h4>预测误差项 ε<span class="ss"><span>t=0</span><span>F</span></span> + ε<span class="ss"><span>t=1</span><span>F</span></span></h4><p>普通监督学习的泛化误差，两组各算各的。模型在两组各自的人群上预测得准，这一项就小。</p></div>
+  <div class="card"><h4>距离项 B<sub>Φ</sub> · IPM<sub>G</sub></h4><p>两组人群在表示空间里差多远。差得越远，把"在已见区域学到的"外推到"没见过的区域"就越不可靠。随机试验中 t ⊥⊥ x，两组分布相同，这项为 0。</p></div>
+  <div class="card"><h4>噪声项 −2σ<span class="ss"><span>2</span><span>Y</span></span></h4><p>与模型无关的常数。它出现是因为 PEHE 用条件均值 m<sub>t</sub>(x) 定义，而 ℓ 里含有不可约的结果噪声。</p></div>
+</div>
+<div class="callout ok"><b>这两条定理在算法里的对应：</b>ε<span class="ss"><span>t=0</span><span>F</span></span> + ε<span class="ss"><span>t=1</span><span>F</span></span> → 加权预测损失；B<sub>Φ</sub> · IPM<sub>G</sub> → α · IPM；Φ 一一映射 → 算法里改用对 Φ 归一化来防止作弊。详见 <a href="algorithm.html">算法图解</a> 与 <a href="experiments.html">实验图解</a>。</div>
+</section>
+<section id="sym"><h2>⑤ 符号总表 <span class="tag paper">Sec 1 – Sec 4</span></h2><p>论文里出现的符号一次列全。Sec 4 的符号在 <a href="algorithm.html">算法图解</a> 里有完整的公式卡片。补充材料里的 Notation box 不在这份 PDF 中。</p>
+<div class="scroll"><table class="data" style="min-width:560px"><thead><tr><th>出处</th><th>符号</th><th>含义</th></tr></thead><tbody>
+<tr><td>Sec 1</td><td class="m" style="white-space:normal">x ∈ <span class="sp">X</span></td><td>单位的特征（协变量）</td></tr>
+<tr><td>Sec 1</td><td class="m" style="white-space:normal">t ∈ {0,1}</td><td>处理；0 标准药，1 新药</td></tr>
+<tr><td>Sec 1</td><td class="m" style="white-space:normal">Y<sub>0</sub>, Y<sub>1</sub></td><td>两个潜在结果</td></tr>
+<tr><td>Sec 1</td><td class="m" style="white-space:normal">y</td><td>观测到的结果；t=0 时 y=Y<sub>0</sub>，t=1 时 y=Y<sub>1</sub>（一致性）</td></tr>
+<tr><td>Sec 1</td><td class="m" style="white-space:normal">m<sub>1</sub>(x), m<sub>0</sub>(x)</td><td>E[Y<sub>1</sub>|x]、E[Y<sub>0</sub>|x]，条件均值函数</td></tr>
+<tr><td>Sec 1</td><td class="m" style="white-space:normal">τ(x)</td><td>ITE := E[Y<sub>1</sub>−Y<sub>0</sub>|x] = m<sub>1</sub>(x)−m<sub>0</sub>(x)，亦称 CATE</td></tr>
+<tr><td>Sec 1</td><td class="m" style="white-space:normal">τ̂</td><td>对 τ 的估计</td></tr>
+<tr><td>Sec 1</td><td class="m" style="white-space:normal">p(t=1|x)</td><td>倾向得分；强可忽略性要求 0 &lt; p &lt; 1</td></tr>
+<tr><td>Sec 2</td><td class="m" style="white-space:normal">ATE</td><td>E<sub>x∼p(x)</sub>[τ(x)]</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">d, <span class="sp">X</span> ⊂ R<sup>d</sup>, <span class="sp">Y</span> ⊂ R</td><td>特征维度、有界特征空间、结果空间</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">p(x,t,Y<sub>0</sub>,Y<sub>1</sub>)</td><td>联合分布</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">p<sub>t=1</sub>(x), p<sub>t=0</sub>(x)</td><td>处理组、对照组的特征分布 p(x|t=1)、p(x|t=0)</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">Φ, <span class="sp">R</span>, Ψ</td><td>表示函数、表示空间、Φ 的逆</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">p<sub>Φ</sub>, p<span class="ss"><span>t=1</span><span>Φ</span></span>, p<span class="ss"><span>t=0</span><span>Φ</span></span></td><td>表示空间里的分布；处理组与对照组的版本</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">h, f</td><td>表示空间上的假设 h(Φ,t)；f(x,t)=h(Φ(x),t)</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">L</td><td>损失函数 L : <span class="sp">Y</span>×<span class="sp">Y</span>→R<sub>+</sub></td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">ℓ<sub>h,Φ</sub>(x,t)</td><td>单位-处理对的期望损失</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">ε<sub>F</sub>, ε<sub>CF</sub></td><td>事实损失、反事实损失</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">ε<span class="ss"><span>t=1</span><span>F</span></span>, ε<span class="ss"><span>t=0</span><span>F</span></span></td><td>处理组、对照组的事实损失</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">u</td><td>p(t=1)，总体处理比例</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">τ̂<sub>f</sub>(x)</td><td>估计的 ITE = f(x,1)−f(x,0)</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">ε<sub>PEHE</sub>(f), ε<sub>PEHE</sub>(h,Φ)</td><td>PEHE 损失（Eq. 1）</td></tr>
+<tr><td>Sec 3.1</td><td class="m" style="white-space:normal">IPM<sub>G</sub>(p,q), <span class="sp">G</span>, S</td><td>积分概率度量、函数族、其定义域</td></tr>
+<tr><td>Sec 3.1/3.2</td><td class="m" style="white-space:normal">Wass(p,q), MMD(p,q)</td><td>G 取 1-Lipschitz 函数族、RKHS 单位球时的 IPM</td></tr>
+<tr><td>Sec 3.2</td><td class="m" style="white-space:normal">B<sub>Φ</sub></td><td>使 ℓ(Ψ(r),t)/B<sub>Φ</sub> ∈ <span class="sp">G</span> 的常数</td></tr>
+<tr><td>Sec 3.2</td><td class="m" style="white-space:normal">σ<span class="ss"><span>2</span><span>Y</span></span></td><td>结果 Y<sub>t</sub> 的方差（Definition A11，补充材料）</td></tr>
+<tr><td>Sec 4</td><td class="m" style="white-space:normal">n, (x<sub>i</sub>,t<sub>i</sub>,y<sub>i</sub>)</td><td>样本量与事实样本</td></tr>
+<tr><td>Sec 4</td><td class="m" style="white-space:normal">α, λ, ℜ(h)</td><td>IPM 权重、模型复杂度权重、复杂度项（详见算法图解）</td></tr>
+<tr><td>Sec 4</td><td class="m" style="white-space:normal">w<sub>i</sub></td><td>t<sub>i</sub>/(2u) + (1−t<sub>i</sub>)/(2(1−u))，u = (1/n)Σt<sub>i</sub></td></tr>
+<tr><td>Sec 4</td><td class="m" style="white-space:normal">W, V, Φ<sub>W</sub>, h<sub>V</sub>, η</td><td>表示网络与假设网络的参数、网络、步长</td></tr>
+</tbody></table></div></section>
+<footer>
+  <p><b>来源说明。</b>公式、定义和定理的陈述来自 Shalit et al. (ICML 2017) 的 Sec 1-3；"原文"折叠块是对应陈述的英文表述（为方便对照，符号按页面排版略有调整）。标记"自编"的例子与"重建"的推导是我为了讲解而写的，不是论文内容。</p>
+  <p>其他页面：<a href="algorithm.html">算法图解</a>（Sec 4） · <a href="experiments.html">实验图解</a>（Sec 5） · 配套笔记在 <code>notes/</code>。</p>
+</footer>
+</div>
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+  function f3(v) { return (Math.abs(v) < 5e-10 ? 0 : v).toFixed(3); }
+
+  /* ---- source toggle ---- */
+  var SRC = { obs: { R1: 300, P1: 100, R0: 100, P0: 500 }, rct: { R1: 160, P1: 240, R0: 240, P0: 360 } };
+  var src = "obs";
+  function drawSrc() {
+    var d = SRC[src], n1 = d.R1 + d.P1, n0 = d.R0 + d.P0;
+    var pr1 = d.R1 / n1, pr0 = d.R0 / n0, w = Math.abs(pr1 - pr0);
+    $("srctab").innerHTML = '<thead><tr><th></th><th class="num">富人</th><th class="num">穷人</th><th class="num">合计</th><th class="num">p(富人 | t) = 富人占比</th></tr></thead><tbody>' +
+      '<tr><td><span class="t1">用新药 t=1</span></td><td class="num">' + d.R1 + '</td><td class="num">' + d.P1 + '</td><td class="num">' + n1 + '</td><td class="num">p(富|t=1) = ' + pr1.toFixed(3) + '</td></tr>' +
+      '<tr><td><span class="t0">用旧药 t=0</span></td><td class="num">' + d.R0 + '</td><td class="num">' + d.P0 + '</td><td class="num">' + n0 + '</td><td class="num">p(富|t=0) = ' + pr0.toFixed(3) + '</td></tr></tbody>';
+    $("srclive").innerHTML = (src === "obs" ? "观测数据：两组构成差别很大，距离 = |" + pr1.toFixed(3) + " − " + pr0.toFixed(3) + "| = <b>" + w.toFixed(3) + "</b>。只用新药组学出来的 m<sub>1</sub>，对穷人几乎没见过样本。" : "随机试验：两组的富人占比都等于总体的 0.40，距离 = <b>" + w.toFixed(3) + "</b>。t 与 x 独立，p(x|t=1) = p(x|t=0) = p(x)。");
+  }
+  $("src-obs").addEventListener("click", function () { src = "obs"; $("src-obs").setAttribute("aria-pressed", "true"); $("src-rct").setAttribute("aria-pressed", "false"); drawSrc(); });
+  $("src-rct").addEventListener("click", function () { src = "rct"; $("src-obs").setAttribute("aria-pressed", "false"); $("src-rct").setAttribute("aria-pressed", "true"); drawSrc(); });
+  drawSrc();
+
+  /* ---- Lemma 1 / Theorem 1 explorer ---- */
+  function compute(eR, eP, fP1) {
+    var pX = { R: 0.4, P: 0.6 }, m = { R0: 2, R1: 5, P0: 1, P1: 2 }, f = { R0: 2, R1: 5, P0: 1, P1: fP1 };
+    var j = { R1: pX.R * eR, R0: pX.R * (1 - eR), P1: pX.P * eP, P0: pX.P * (1 - eP) };
+    var u = j.R1 + j.P1, key = ["R1", "R0", "P1", "P0"], opp = { R1: "R0", R0: "R1", P1: "P0", P0: "P1" };
+    var l = {}; key.forEach(function (k) { l[k] = Math.pow(f[k] - m[k], 2); });
+    var eF = 0, eCF = 0; key.forEach(function (k) { eF += l[k] * j[k]; eCF += l[k] * j[opp[k]]; });
+    var p1 = { R: j.R1 / u, P: j.P1 / u }, p0 = { R: j.R0 / (1 - u), P: j.P0 / (1 - u) };
+    var e1 = l.R1 * p1.R + l.P1 * p1.P, e0 = l.R0 * p0.R + l.P0 * p0.P;
+    var tau = { R: m.R1 - m.R0, P: m.P1 - m.P0 }, th = { R: f.R1 - f.R0, P: f.P1 - f.P0 };
+    var pehe = pX.R * Math.pow(th.R - tau.R, 2) + pX.P * Math.pow(th.P - tau.P, 2);
+    var W = Math.abs(p1.R - p0.R), B = Math.max(Math.abs(l.R1 - l.P1), Math.abs(l.R0 - l.P0));
+    var lemR = (1 - u) * e1 + u * e0 + B * W, chain1 = 2 * (eF + eCF), chain2 = 2 * (e0 + e1 + B * W);
+    return { pX: pX, m: m, f: f, j: j, u: u, l: l, opp: opp, eF: eF, eCF: eCF, e1: e1, e0: e0, pehe: pehe, W: W, B: B, lemR: lemR, c1: chain1, c2: chain2, p1: p1, p0: p0 };
+  }
+  function drawEx() {
+    var eR = parseFloat($("eR").value), eP = parseFloat($("eP").value), fP1 = parseFloat($("fP1").value);
+    $("eR-o").textContent = eR.toFixed(2); $("eP-o").textContent = eP.toFixed(2); $("fP1-o").textContent = fP1.toFixed(1);
+    var c = compute(eR, eP, fP1), names = { R1: "富人 · 新药", R0: "富人 · 旧药", P1: "穷人 · 新药", P0: "穷人 · 旧药" };
+    var h = '<thead><tr><th>(x, t)</th><th class="num">p(x,t) 事实</th><th class="num">p(x,1−t) 反事实</th><th class="num">m<sub>t</sub>(x) 真值</th><th class="num">f(x,t) 预测</th><th class="num">ℓ(x,t)</th></tr></thead><tbody>';
+    ["R1", "R0", "P1", "P0"].forEach(function (k) {
+      h += '<tr><td>' + names[k] + '</td><td class="num">' + f3(c.j[k]) + '</td><td class="num">' + f3(c.j[c.opp[k]]) + '</td><td class="num">' + c.m[k] + '</td><td class="num">' + c.f[k].toFixed(1) + '</td><td class="num">' + f3(c.l[k]) + '</td></tr>';
+    });
+    $("extab").innerHTML = h + '</tbody>';
+    $("exread").innerHTML =
+      '<div>u = p(t=1)<b>' + f3(c.u) + '</b></div><div>ε<sub>F</sub>（事实损失）<b>' + f3(c.eF) + '</b></div><div>ε<sub>CF</sub>（反事实损失）<b>' + f3(c.eCF) + '</b></div>' +
+      '<div>ε<sub>F</sub><sup>t=1</sup><b>' + f3(c.e1) + '</b></div><div>ε<sub>F</sub><sup>t=0</sup><b>' + f3(c.e0) + '</b></div><div>验证 u·ε<sup>t=1</sup> + (1−u)·ε<sup>t=0</sup><b>' + f3(c.u * c.e1 + (1 - c.u) * c.e0) + '</b></div>' +
+      '<div>PEHE<b>' + f3(c.pehe) + '</b></div><div>IPM = Wasserstein<b>' + f3(c.W) + '</b></div><div>B<sub>Φ</sub> = max<sub>t</sub>|ℓ(R,t) − ℓ(P,t)|<b>' + f3(c.B) + '</b></div>';
+    var tol = 1e-9, ok1 = c.eCF <= c.lemR + tol, ok2 = c.pehe <= c.c1 + tol, ok3 = c.c1 <= c.c2 + tol;
+    var mark = function (b) { return b ? '<span class="ok">✓</span>' : '<span class="bad">✗</span>'; };
+    $("exchain").innerHTML =
+      '<div class="row">Lemma 1：ε<sub>CF</sub> = ' + f3(c.eCF) + ' ≤ (1−u)ε<sup>t=1</sup> + uε<sup>t=0</sup> + B<sub>Φ</sub>·IPM = ' + f3(c.lemR) + ' ' + mark(ok1) + '</div>' +
+      '<div class="row">Theorem 1：PEHE = ' + f3(c.pehe) + ' ≤ 2(ε<sub>CF</sub> + ε<sub>F</sub>) = ' + f3(c.c1) + ' ' + mark(ok2) + ' ≤ 2(ε<sup>t=0</sup> + ε<sup>t=1</sup> + B<sub>Φ</sub>·IPM) = ' + f3(c.c2) + ' ' + mark(ok3) + '</div>';
+    var dist = c.eCF / Math.max(c.eF, 1e-9);
+    $("exlive").innerHTML = (c.eF < 1e-9) ? "模型完全正确：所有损失为 0，不等式两边都是 0。" : "ε<sub>CF</sub> 是 ε<sub>F</sub> 的 <b>" + dist.toFixed(1) + "</b> 倍。把 f(P,1) 调回 2（真值）损失归零；把 p(t=1|P) 调到接近 p(t=1|R)，两组分布接近，IPM 变小，ε<sub>CF</sub> 与 ε<sub>F</sub> 的差距也随之缩小。";
+  }
+  ["eR", "eP", "fP1"].forEach(function (id) { $(id).addEventListener("input", drawEx); });
+  drawEx();
+  window.__theoryCompute = compute;
+})();
+</script>
+</body>
+</html>
