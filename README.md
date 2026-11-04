@@ -22,7 +22,7 @@
 | Sec 3.1 | 符号与定义（Φ、ε_F、ε_CF、PEHE、IPM） | [notes/03_definitions.md](notes/03_definitions.md) |
 | Sec 3.2 | Lemma 1、Theorem 1 的推导与数值验证 | [notes/04_bounds.md](notes/04_bounds.md) |
 | Sec 4 | 算法：网络结构、目标函数、训练过程 | [notes/05_algorithm.md](notes/05_algorithm.md)，交互页面 [docs/algorithm.html](docs/algorithm.html) |
-| Sec 5 | 实验（IHDP、Jobs） | 待讲 |
+| Sec 5 | 实验：数据集、指标、表 1、图 2-3 | [notes/06_experiments.md](notes/06_experiments.md)，交互页面 [docs/experiments.html](docs/experiments.html) |
 | Sec 6 | 结论与局限 | 待讲 |
 | 复现 | TARNet / CFR 的 PyTorch 实现与对照论文表 1 | 未开始 |
 
@@ -35,6 +35,7 @@ CLAUDE.md                    # 项目约定（给 Claude Code 读的）
 Estimating individual ….pdf  # 论文原文
 notes/                       # 按章节编号的讲解笔记
 docs/algorithm.html          # 算法部分的交互式图解（单文件，离线可用）
+docs/experiments.html        # 实验部分的交互式图解（含论文 Fig 2-3 的截图）
 src/                         # 数值验证脚本；后续放复现代码
 figures/                     # 生成的图
 .claude/skills/              # 项目级 skills
@@ -42,7 +43,7 @@ figures/                     # 生成的图
 
 ## 怎么看交互页面
 
-`docs/algorithm.html` 是自包含的网页，GitHub 网页上只会显示源码。克隆仓库后直接用浏览器打开即可，也可以开启 GitHub Pages 在线查看。页面里有三块：网络结构（可切换样本处理）、目标函数的来历与权重计算器、IPM 与预测损失的拉扯演示、Algorithm 1 的分步动画。
+`docs/algorithm.html` 与 `docs/experiments.html` 是自包含的网页，GitHub 网页上只会显示源码。克隆仓库后直接用浏览器打开即可，也可以开启 GitHub Pages 在线查看。页面里有三块：网络结构（可切换样本处理）、目标函数的来历与权重计算器、IPM 与预测损失的拉扯演示、Algorithm 1 的分步动画。
 
 ## 运行验证脚本
 

@@ -62,7 +62,7 @@ pip install torch scipy matplotlib numpy
 
 ## 进度
 
-Sec 1-4 已讲解并有笔记（notes/00-05）与算法交互页（docs/algorithm.html）；Sec 5-6 与复现尚未开始。
+Sec 1-5 已讲解并有笔记（notes/00-06）、算法交互页（docs/algorithm.html）与实验交互页（docs/experiments.html）；Sec 6 与复现尚未开始。
 
 ## Git
 
