@@ -23,7 +23,7 @@
 | Sec 3.2 | Lemma 1、Theorem 1 的推导与数值验证 | [notes/04_bounds.md](notes/04_bounds.md)，[docs/theory.html](docs/theory.html) |
 | Sec 4 | 算法：网络结构、目标函数、训练过程 | [notes/05_algorithm.md](notes/05_algorithm.md)，交互页面 [docs/algorithm.html](docs/algorithm.html) |
 | Sec 5 | 实验：数据集、指标、表 1、图 2-3 | [notes/06_experiments.md](notes/06_experiments.md)，交互页面 [docs/experiments.html](docs/experiments.html) |
-| Sec 6 | 结论与局限 | 待讲 |
+| Sec 6 | 结论、三个开放问题、全文回顾 | [notes/07_conclusion.md](notes/07_conclusion.md)，交互页面 [docs/conclusion.html](docs/conclusion.html) |
 | 复现 | TARNet / CFR 的 PyTorch 实现与对照论文表 1 | 未开始 |
 
 论文结构脑图与符号表见 [notes/mindmap.md](notes/mindmap.md)。
@@ -38,6 +38,7 @@ docs/index.html              # 三个图解页面的目录
 docs/theory.html             # Sec 1-3 理论部分图解（公式、变量、Theorem 1 全文）
 docs/algorithm.html          # 算法部分的交互式图解（单文件，离线可用）
 docs/experiments.html        # 实验部分的交互式图解（含论文 Fig 2-3 的截图）
+docs/conclusion.html         # Sec 6 与全文回顾（自测清单、复现路线）
 src/                         # 数值验证脚本；后续放复现代码
 figures/                     # 生成的图
 .claude/skills/              # 项目级 skills
