@@ -12,7 +12,7 @@
 Estimating individual treatment effect ：generalization bounds and algorithms.pdf   # 原文（文件名含全角冒号 "："，引用时务必加引号）
 notes/paper_fulltext.txt     # pdftotext -layout 提取的全文，供检索（公式为纯文本，不完全可靠，以 PDF 为准）
 notes/                       # 讲解笔记，按章节编号：01_problem.md, 02_theory.md ...
-docs/                        # 交互式 HTML 讲解页（自包含单文件）：index / theory / algorithm / experiments
+docs/                        # 交互式 HTML 讲解页（自包含单文件）：index / theory / algorithm / experiments / conclusion
 src/                         # 复现代码（见下）
 figures/                     # 生成的图（推导可视化、实验复现图）
 .claude/skills/              # 项目级 skills（见下）
@@ -62,7 +62,7 @@ pip install torch scipy matplotlib numpy
 
 ## 进度
 
-Sec 1-5 已讲解并有笔记（notes/00-06）；HTML 图解已有 docs/theory.html（Sec 1-3）、docs/algorithm.html（Sec 4）、docs/experiments.html（Sec 5）。Sec 6 与复现尚未开始。HTML 页面里论文的公式和变量必须写全并列变量表（见 html-explainer skill）。
+Sec 1-6 已全部讲解并有笔记（notes/00-07）；HTML 图解：docs/theory.html（Sec 1-3）、algorithm.html（Sec 4）、experiments.html（Sec 5）、conclusion.html（Sec 6，含自测清单与复现路线）。复现代码已写完并通过测试与冒烟运行（见 notes/08_replication.md、README 的"复现代码"）；完整实验由用户在自己的机器上运行（云环境无 GPU，且不需要 GPU），拿到 results/ 后再汇总写成 docs/replication.html 与笔记。HTML 页面里论文的公式和变量必须写全并列变量表（见 html-explainer skill）。
 
 ## Git
 
