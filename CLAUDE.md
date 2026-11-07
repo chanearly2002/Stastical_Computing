@@ -64,7 +64,7 @@ pip install torch scipy matplotlib numpy
 
 Sec 1-6 已全部讲解并有笔记（notes/00-07）；HTML 图解：docs/theory.html（Sec 1-3）、algorithm.html（Sec 4）、experiments.html（Sec 5）、conclusion.html（Sec 6，含自测清单与复现路线）。复现代码已写完并通过测试与冒烟运行（见 notes/08_replication.md、README 的"复现代码"）；完整实验由用户在自己的机器上运行（云环境无 GPU，且不需要 GPU），拿到 results/ 后再汇总写成 docs/replication.html 与笔记。HTML 页面里论文的公式和变量必须写全并列变量表（见 html-explainer skill）。
 
-汇报 PPT `个体处理效应估计.pptx`：章节 01–03 已重排并完善。01 章按 notes/ppt_01_方案.md 重组为 1.1–1.5（第 3–7 页），02 章为第 8–11 页，03 章为第 12–19 页。**01–03 的修改范围现为第 1–19 页**（原始文件的第 1–14 页）；第 20 页起（04 章 CFR/TARNet 及之后）未改动。讲稿（备注栏）由用户自行准备，不要修改。
+汇报 PPT `个体处理效应估计.pptx`：章节 01–03 已重排并完善。01 章按 notes/ppt_01_方案.md 重组为 1.1–1.5（第 3–7 页），02 章为第 8–11 页，03 章为第 12–19 页（3.1 定义：分布 → 损失 → PEHE → IPM → 玩具例子；3.2 误差界：Lemma 1 → Theorem 1 → 含义）。术语统一为“事实损失 ε_F / 反事实损失 ε_CF”，处理组/对照组在故事中统一称“新药组 t=1 / 旧药组 t=0”。**01–03 的修改范围现为第 1–19 页**（原始文件的第 1–14 页）；第 20 页起（04 章 CFR/TARNet 及之后）未改动。讲稿（备注栏）由用户自行准备，不要修改。
 
 ## Git
 
