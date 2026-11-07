@@ -64,7 +64,7 @@ pip install torch scipy matplotlib numpy
 
 Sec 1-5 已讲解并有笔记（notes/00-06）；HTML 图解已有 docs/theory.html（Sec 1-3）、docs/algorithm.html（Sec 4）、docs/experiments.html（Sec 5）。Sec 6 与复现尚未开始。HTML 页面里论文的公式和变量必须写全并列变量表（见 html-explainer skill）。
 
-汇报 PPT `个体处理效应估计.pptx`：章节 01–03 已按目录重排并完善，新增 4 页（已有方法、2.3 隐藏混杂、2.4 协变量偏移、3.1 玩具例子）。**01–03 的修改范围现为第 1–18 页**（原第 1–14 页）；第 19 页起（原第 15 页起，04 章 CFR/TARNet 及之后）未改动。讲稿（备注栏）由用户自行准备，不要修改。
+汇报 PPT `个体处理效应估计.pptx`：章节 01–03 已重排并完善。01 章按 notes/ppt_01_方案.md 重组为 1.1–1.5（第 3–7 页），02 章为第 8–11 页，03 章为第 12–19 页。**01–03 的修改范围现为第 1–19 页**（原始文件的第 1–14 页）；第 20 页起（04 章 CFR/TARNet 及之后）未改动。讲稿（备注栏）由用户自行准备，不要修改。
 
 ## Git
 
