@@ -62,7 +62,7 @@ pip install torch scipy matplotlib numpy
 
 ## 进度
 
-Sec 1-6 已全部讲解并有笔记（notes/00-07）；HTML 图解：docs/theory.html（Sec 1-3）、algorithm.html（Sec 4）、experiments.html（Sec 5）、conclusion.html（Sec 6，含自测清单与复现路线）。下一步：开始复现（见上面复现计划）。HTML 页面里论文的公式和变量必须写全并列变量表（见 html-explainer skill）。
+Sec 1-6 已全部讲解并有笔记（notes/00-07）；HTML 图解：docs/theory.html（Sec 1-3）、algorithm.html（Sec 4）、experiments.html（Sec 5）、conclusion.html（Sec 6，含自测清单与复现路线）。复现代码已写完并通过测试与冒烟运行（见 notes/08_replication.md、README 的"复现代码"）；完整实验由用户在自己的机器上运行（云环境无 GPU，且不需要 GPU），拿到 results/ 后再汇总写成 docs/replication.html 与笔记。HTML 页面里论文的公式和变量必须写全并列变量表（见 html-explainer skill）。
 
 ## Git
 

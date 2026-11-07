@@ -24,7 +24,7 @@
 | Sec 4 | 算法：网络结构、目标函数、训练过程 | [notes/05_algorithm.md](notes/05_algorithm.md)，交互页面 [docs/algorithm.html](docs/algorithm.html) |
 | Sec 5 | 实验：数据集、指标、表 1、图 2-3 | [notes/06_experiments.md](notes/06_experiments.md)，交互页面 [docs/experiments.html](docs/experiments.html) |
 | Sec 6 | 结论、三个开放问题、全文回顾 | [notes/07_conclusion.md](notes/07_conclusion.md)，交互页面 [docs/conclusion.html](docs/conclusion.html) |
-| 复现 | TARNet / CFR 的 PyTorch 实现与对照论文表 1 | 未开始 |
+| 复现 | TARNet / CFR 的 PyTorch 实现、IHDP / Jobs / 合成数据实验与分析脚本 | 代码已完成并通过测试与冒烟运行；完整实验待你运行，见下面"复现代码"，说明在 [notes/08_replication.md](notes/08_replication.md) |
 
 论文结构脑图与符号表见 [notes/mindmap.md](notes/mindmap.md)。
 
@@ -39,7 +39,12 @@ docs/theory.html             # Sec 1-3 理论部分图解（公式、变量、Th
 docs/algorithm.html          # 算法部分的交互式图解（单文件，离线可用）
 docs/experiments.html        # 实验部分的交互式图解（含论文 Fig 2-3 的截图）
 docs/conclusion.html         # Sec 6 与全文回顾（自测清单、复现路线）
-src/                         # 数值验证脚本；后续放复现代码
+src/cfr/                     # 复现：IPM、TARNet/CFR、训练、指标、基线、数据读取
+src/run_*.py, analyze_*.py   # 复现：实验脚本与汇总出图脚本
+src/*.py（其他）            # 理论部分的数值验证脚本
+tests/                       # 单元测试
+scripts/                     # fetch_data.sh（下载数据）、run_all.sh（全部实验）
+results/                     # 实验原始记录（jsonl）与汇总（json）
 figures/                     # 生成的图
 .claude/skills/              # 项目级 skills
 ```
@@ -67,6 +72,30 @@ python3 src/verify_thm1.py     # 随机问题上数值检验 Lemma 1 与 Theorem
 ```bash
 python3 src/plot_thm1.py       # 生成 figures/03_thm1_chain.png
 ```
+
+## 复现代码（TARNet / CFR）
+
+**不需要 GPU。** 网络很小（宽 100-200 的全连接层，batch 100），代码只用 CPU；4 核上我测得 IHDP 的 α 扫描约每分钟完成 14 个模型。用 GPU 基本不会更快。
+
+```bash
+pip install -r requirements.txt          # torch 等
+./scripts/fetch_data.sh                  # 下载 IHDP（1000 次实现）与 Jobs（10 次划分），需要能访问 www.fredjo.com
+PYTHONPATH=src python -m pytest -q tests # 9 个单元测试
+./scripts/run_all.sh                     # 全部实验 + 汇总 + 出图（我粗估 4 核约 1.5-2 小时）
+```
+
+也可以分步运行（都可随时中断，已完成的条目会被跳过）：
+
+```bash
+export PYTHONPATH=src
+python src/run_ihdp_sweep.py --reps 0 50 --out results/ihdp_sweep.jsonl   # IHDP：TARNet 与 CFR 的 α 扫描
+python src/run_jobs.py --splits 0 10 --out results/jobs.jsonl             # Jobs：ε_ATT 与策略风险
+python src/run_synthetic.py --seeds 0 20 --out results/synthetic.jsonl    # 合成数据
+python src/run_ihdp_sweep.py --reps 0 20 --q 0.5 --alphas_wass 0.03 0.1 0.3 1 --alphas_mmd --out results/ihdp_imbalance.jsonl  # 不平衡子样本，q 取 0、0.5、1
+python src/analyze_ihdp.py; python src/analyze_jobs.py; python src/analyze_synthetic.py; python src/analyze_imbalance.py
+```
+
+输出：`results/*.jsonl`（逐次运行的原始记录）、`results/*_summary.json`、`figures/08-11_*.png`。`--workers` 控制并行进程数（默认 4），`--iters` 控制训练步数（默认 3000）。实现细节、论文未给出而我们自行选择的超参数、以及与论文表 1 对照的方法，见 [notes/08_replication.md](notes/08_replication.md)。
 
 ## 项目 skills
 
